@@ -58,8 +58,18 @@ export interface Sale {
   userId: string;
   userName: string;
   createdAt: Date;
+  tableNumber?: number;
 }
 
 export interface CartItem extends SaleItem {
   subtotal: number;
+}
+
+export type TableStatus = 'available' | 'occupied' | 'requesting-bill';
+
+export interface Table {
+  id: number;
+  status: TableStatus;
+  orders: CartItem[];
+  total: number;
 }

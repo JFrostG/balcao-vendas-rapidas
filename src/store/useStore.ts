@@ -1,7 +1,6 @@
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User, Shift, Product, Sale, CartItem, PaymentMethod } from '../types';
+import { User, Shift, Product, Sale, CartItem, PaymentMethod, Table, TableStatus } from '../types';
 
 interface AppState {
   // Auth
@@ -29,6 +28,15 @@ interface AppState {
   clearCart: () => void;
   completeSale: (paymentMethod: PaymentMethod, discount: number, discountType: 'value' | 'percentage') => void;
   
+  // Tables
+  tables: Table[];
+  addToTable: (tableNumber: number, product: Product, quantity?: number) => void;
+  removeFromTable: (tableNumber: number, productId: string) => void;
+  updateTableQuantity: (tableNumber: number, productId: string, quantity: number) => void;
+  updateTableStatus: (tableNumber: number, status: TableStatus) => void;
+  clearTable: (tableNumber: number) => void;
+  completeTableSale: (tableNumber: number, paymentMethod: PaymentMethod, discount: number, discountType: 'value' | 'percentage') => void;
+  
   // Utils
   getCartTotal: () => number;
   getCurrentShiftSales: () => Sale[];
@@ -53,6 +61,16 @@ const defaultProducts: Product[] = [
   { id: '7', name: 'Onion Rings', price: 14.90, category: 'acompanhamento', available: true },
   { id: '8', name: 'Milk Shake', price: 16.90, category: 'sobremesa', available: true },
 ];
+
+// Initialize tables 1-15
+const initializeTables = (): Table[] => {
+  return Array.from({ length: 15 }, (_, index) => ({
+    id: index + 1,
+    status: 'available' as TableStatus,
+    orders: [],
+    total: 0,
+  }));
+};
 
 export const useStore = create<AppState>()(
   persist(
@@ -248,6 +266,148 @@ export const useStore = create<AppState>()(
         }));
       },
       
+      // Tables
+      tables: initializeTables(),
+      addToTable: (tableNumber, product, quantity = 1) => {
+        set((state) => {
+          const updatedTables = state.tables.map(table => {
+            if (table.id === tableNumber) {
+              const existingItem = table.orders.find(item => item.productId === product.id);
+              
+              let updatedOrders;
+              if (existingItem) {
+                updatedOrders = table.orders.map(item =>
+                  item.productId === product.id
+                    ? { ...item, quantity: item.quantity + quantity, subtotal: (item.quantity + quantity) * item.price }
+                    : item
+                );
+              } else {
+                const newItem: CartItem = {
+                  productId: product.id,
+                  productName: product.name,
+                  price: product.price,
+                  quantity,
+                  subtotal: product.price * quantity,
+                };
+                updatedOrders = [...table.orders, newItem];
+              }
+              
+              const newTotal = updatedOrders.reduce((sum, item) => sum + item.subtotal, 0);
+              
+              return {
+                ...table,
+                orders: updatedOrders,
+                total: newTotal,
+                status: 'occupied' as TableStatus,
+              };
+            }
+            return table;
+          });
+          
+          return { tables: updatedTables };
+        });
+      },
+      removeFromTable: (tableNumber, productId) => {
+        set((state) => {
+          const updatedTables = state.tables.map(table => {
+            if (table.id === tableNumber) {
+              const updatedOrders = table.orders.filter(item => item.productId !== productId);
+              const newTotal = updatedOrders.reduce((sum, item) => sum + item.subtotal, 0);
+              
+              return {
+                ...table,
+                orders: updatedOrders,
+                total: newTotal,
+                status: updatedOrders.length === 0 ? 'available' as TableStatus : table.status,
+              };
+            }
+            return table;
+          });
+          
+          return { tables: updatedTables };
+        });
+      },
+      updateTableQuantity: (tableNumber, productId, quantity) => {
+        if (quantity <= 0) {
+          get().removeFromTable(tableNumber, productId);
+          return;
+        }
+        
+        set((state) => {
+          const updatedTables = state.tables.map(table => {
+            if (table.id === tableNumber) {
+              const updatedOrders = table.orders.map(item =>
+                item.productId === productId
+                  ? { ...item, quantity, subtotal: quantity * item.price }
+                  : item
+              );
+              const newTotal = updatedOrders.reduce((sum, item) => sum + item.subtotal, 0);
+              
+              return {
+                ...table,
+                orders: updatedOrders,
+                total: newTotal,
+              };
+            }
+            return table;
+          });
+          
+          return { tables: updatedTables };
+        });
+      },
+      updateTableStatus: (tableNumber, status) => {
+        set((state) => ({
+          tables: state.tables.map(table =>
+            table.id === tableNumber ? { ...table, status } : table
+          ),
+        }));
+      },
+      clearTable: (tableNumber) => {
+        set((state) => ({
+          tables: state.tables.map(table =>
+            table.id === tableNumber 
+              ? { ...table, status: 'available' as TableStatus, orders: [], total: 0 }
+              : table
+          ),
+        }));
+      },
+      completeTableSale: (tableNumber, paymentMethod, discount, discountType) => {
+        const { tables, currentShift, currentUser } = get();
+        const table = tables.find(t => t.id === tableNumber);
+        
+        if (!table || !currentShift || !currentUser || table.orders.length === 0) return;
+        
+        const subtotal = table.total;
+        const discountAmount = discountType === 'percentage' 
+          ? (subtotal * discount) / 100 
+          : discount;
+        const total = Math.max(0, subtotal - discountAmount);
+        
+        const newSale: Sale = {
+          id: Date.now().toString(),
+          items: table.orders.map(item => ({
+            productId: item.productId,
+            productName: item.productName,
+            price: item.price,
+            quantity: item.quantity,
+            isCourtesy: paymentMethod === 'cortesia',
+          })),
+          total,
+          paymentMethod,
+          discount: discountAmount,
+          discountType,
+          shiftId: currentShift.id,
+          userId: currentUser.id,
+          userName: currentUser.name,
+          createdAt: new Date(),
+          tableNumber,
+        };
+        
+        set((state) => ({
+          sales: [...state.sales, newSale],
+        }));
+      },
+      
       // Utils
       getCartTotal: () => {
         const { cart } = get();
@@ -277,6 +437,7 @@ export const useStore = create<AppState>()(
         shifts: state.shifts,
         products: state.products,
         sales: state.sales,
+        tables: state.tables,
       }),
     }
   )

@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore';
 import Login from '../components/Login';
 import ShiftManager from '../components/ShiftManager';
 import Navigation from '../components/Navigation';
-import SalesInterface from '../components/SalesInterface';
+import TableManager from '../components/TableManager';
 import ProductManager from '../components/ProductManager';
 import Reports from '../components/Reports';
 import ShiftHistory from '../components/ShiftHistory';
@@ -25,7 +25,7 @@ const Index = () => {
   const renderCurrentView = () => {
     switch (currentView) {
       case 'sales':
-        return <SalesInterface />;
+        return <TableManager />;
       case 'products':
         return <ProductManager />;
       case 'reports':
@@ -35,7 +35,7 @@ const Index = () => {
       case 'shift':
         return <ShiftManager />;
       default:
-        return <SalesInterface />;
+        return <TableManager />;
     }
   };
 
