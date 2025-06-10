@@ -1,357 +1,268 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useStore } from '../store/useStore';
-import { PaymentMethod } from '../types';
-import { Plus, Minus, ShoppingCart, Trash2, CreditCard } from 'lucide-react';
+import { PaymentMethod, ProductCategory } from '../types';
+import { Plus, Minus, Trash2, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const SalesInterface = () => {
-  const { 
-    products, 
-    cart, 
-    addToCart, 
-    removeFromCart, 
-    updateCartQuantity, 
-    clearCart, 
-    completeSale, 
-    getCartTotal 
+  const {
+    products,
+    cart,
+    addToCart,
+    removeFromCart,
+    updateCartQuantity,
+    clearCart,
+    completeSale,
+    getCartTotal,
+    currentShift,
+    currentUser
   } = useStore();
 
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'all'>('all');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('dinheiro');
-  const [discount, setDiscount] = useState('0');
+  const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState<'value' | 'percentage'>('value');
 
-  const categories = ['hamburguer', 'bebida', 'acompanhamento', 'sobremesa', 'outro'];
-  const availableProducts = products.filter(p => p.available);
+  // Se não houver turno ativo e usuário não for admin, mostrar aviso
+  if (!currentShift?.isActive && currentUser?.role !== 'admin') {
+    return (
+      <div className="p-4 flex items-center justify-center h-full">
+        <Card className="w-full max-w-md text-center">
+          <CardHeader>
+            <AlertTriangle className="w-12 h-12 mx-auto text-yellow-500" />
+            <CardTitle>Turno Necessário</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              É necessário abrir um turno para realizar vendas.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'hamburguer': return '🍔';
-      case 'bebida': return '🥤';
-      case 'acompanhamento': return '🍟';
-      case 'sobremesa': return '🍰';
-      default: return '📦';
-    }
-  };
+  // Se for admin sem turno, mostrar aviso mas permitir acesso
+  const showTurnWarning = currentUser?.role === 'admin' && !currentShift?.isActive;
 
-  const paymentMethods = [
-    { value: 'dinheiro', label: 'Dinheiro' },
-    { value: 'debito', label: 'Cartão Débito' },
-    { value: 'credito', label: 'Cartão Crédito' },
-    { value: 'pix', label: 'PIX' },
-    { value: 'cortesia', label: 'Cortesia' }
-  ];
+  const filteredProducts = products.filter(product => 
+    product.available && (selectedCategory === 'all' || product.category === selectedCategory)
+  );
 
-  const getCartItemCount = () => {
-    return cart.reduce((sum, item) => sum + item.quantity, 0);
-  };
-
-  const handleCheckout = () => {
-    if (cart.length === 0) {
-      toast.error('Adicione itens ao carrinho');
-      return;
-    }
-    setIsCheckoutOpen(true);
+  const categories: (ProductCategory | 'all')[] = ['all', 'hamburguer', 'bebida', 'acompanhamento', 'sobremesa', 'outro'];
+  const categoryLabels = {
+    all: 'Todos',
+    hamburguer: 'Hambúrgueres',
+    bebida: 'Bebidas',
+    acompanhamento: 'Acompanhamentos',
+    sobremesa: 'Sobremesas',
+    outro: 'Outros'
   };
 
   const handleCompleteSale = () => {
-    const discountValue = parseFloat(discount) || 0;
-    if (discountValue < 0) {
-      toast.error('Desconto não pode ser negativo');
+    if (cart.length === 0) {
+      toast.error('Carrinho vazio');
       return;
     }
 
-    const subtotal = getCartTotal();
-    const discountAmount = discountType === 'percentage' 
-      ? (subtotal * discountValue) / 100 
-      : discountValue;
-
-    if (discountAmount > subtotal) {
-      toast.error('Desconto não pode ser maior que o total');
+    if (showTurnWarning) {
+      toast.error('Abra um turno para registrar vendas');
       return;
     }
 
-    completeSale(paymentMethod, discountValue, discountType);
-    setIsCheckoutOpen(false);
-    setDiscount('0');
+    completeSale(paymentMethod, discount, discountType);
+    setDiscount(0);
     setPaymentMethod('dinheiro');
     toast.success('Venda realizada com sucesso!');
   };
 
-  const calculateTotal = () => {
-    const subtotal = getCartTotal();
-    const discountValue = parseFloat(discount) || 0;
-    const discountAmount = discountType === 'percentage' 
-      ? (subtotal * discountValue) / 100 
-      : discountValue;
-    return Math.max(0, subtotal - discountAmount);
-  };
+  const cartTotal = getCartTotal();
+  const discountAmount = discountType === 'percentage' ? (cartTotal * discount) / 100 : discount;
+  const finalTotal = Math.max(0, cartTotal - discountAmount);
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="h-full flex">
       {/* Products Grid */}
-      <div className="flex-1 p-6 overflow-y-auto">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Ponto de Venda</h1>
-          <p className="text-muted-foreground">Selecione os produtos para adicionar ao carrinho</p>
+      <div className="flex-1 p-4 overflow-y-auto">
+        {showTurnWarning && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-yellow-600" />
+              <span className="text-sm text-yellow-800">
+                Modo Admin: Sem turno ativo. Vendas não serão registradas.
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="mb-4">
+          <Label>Categoria</Label>
+          <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as ProductCategory | 'all')}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map(category => (
+                <SelectItem key={category} value={category}>
+                  {categoryLabels[category]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        {categories.map(category => {
-          const categoryProducts = availableProducts.filter(p => p.category === category);
-          if (categoryProducts.length === 0) return null;
-
-          return (
-            <div key={category} className="mb-8">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <span className="text-2xl">{getCategoryIcon(category)}</span>
-                <span className="capitalize">{category}</span>
-                <Badge variant="secondary">{categoryProducts.length}</Badge>
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {categoryProducts.map(product => (
-                  <Card 
-                    key={product.id} 
-                    className="hover-lift cursor-pointer transition-all duration-200 hover:shadow-lg"
-                    onClick={() => addToCart(product)}
-                  >
-                    <CardHeader className="pb-2">
-                      <div className="text-center">
-                        <span className="text-4xl mb-2 block">{getCategoryIcon(product.category)}</span>
-                        <CardTitle className="text-sm font-medium leading-tight">
-                          {product.name}
-                        </CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-primary">
-                          R$ {product.price.toFixed(2)}
-                        </p>
-                        <Button 
-                          size="sm" 
-                          className="w-full mt-2 gradient-burger hover:opacity-90"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            addToCart(product);
-                            toast.success(`${product.name} adicionado ao carrinho`);
-                          }}
-                        >
-                          <Plus className="w-4 h-4 mr-1" />
-                          Adicionar
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-
-        {availableProducts.length === 0 && (
-          <Card className="text-center py-12">
-            <CardContent>
-              <ShoppingCart className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Nenhum produto disponível</h3>
-              <p className="text-muted-foreground">
-                Cadastre produtos ou verifique a disponibilidade
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {filteredProducts.map(product => (
+            <Card key={product.id} className="cursor-pointer hover:shadow-lg transition-shadow">
+              <CardContent className="p-4" onClick={() => addToCart(product)}>
+                <h3 className="font-semibold text-sm mb-2">{product.name}</h3>
+                <p className="text-lg font-bold text-primary">R$ {product.price.toFixed(2)}</p>
+                <Badge variant="secondary" className="text-xs mt-2">
+                  {categoryLabels[product.category]}
+                </Badge>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
       {/* Cart Sidebar */}
-      <div className="w-96 bg-white border-l shadow-lg flex flex-col">
-        <div className="p-6 border-b">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Carrinho</h2>
-            <Badge variant="secondary">{getCartItemCount()} itens</Badge>
-          </div>
-          {cart.length > 0 && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={clearCart}
-              className="w-full"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Limpar Carrinho
-            </Button>
-          )}
+      <div className="w-96 bg-white border-l p-4 flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <ShoppingCart className="w-5 h-5" />
+            Carrinho
+          </h2>
+          <Button onClick={clearCart} variant="ghost" size="sm">
+            <Trash2 className="w-4 h-4" />
+          </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto space-y-2 mb-4">
           {cart.length === 0 ? (
-            <div className="text-center py-12">
-              <ShoppingCart className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">Carrinho vazio</p>
-            </div>
+            <p className="text-center text-muted-foreground py-8">
+              Carrinho vazio
+            </p>
           ) : (
-            <div className="space-y-4">
-              {cart.map(item => (
-                <Card key={item.productId}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium text-sm">{item.productName}</h3>
-                      <Button
-                        variant="ghost"
+            cart.map(item => (
+              <Card key={item.productId}>
+                <CardContent className="p-3">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-medium text-sm">{item.productName}</h4>
+                    <Button 
+                      onClick={() => removeFromCart(item.productId)}
+                      variant="ghost" 
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        onClick={() => updateCartQuantity(item.productId, item.quantity - 1)}
+                        variant="outline" 
                         size="sm"
-                        onClick={() => removeFromCart(item.productId)}
-                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                        className="h-6 w-6 p-0"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Minus className="w-3 h-3" />
+                      </Button>
+                      <span className="text-sm font-medium">{item.quantity}</span>
+                      <Button 
+                        onClick={() => updateCartQuantity(item.productId, item.quantity + 1)}
+                        variant="outline" 
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                      >
+                        <Plus className="w-3 h-3" />
                       </Button>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateCartQuantity(item.productId, item.quantity - 1)}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </Button>
-                        <span className="w-8 text-center text-sm font-medium">
-                          {item.quantity}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateCartQuantity(item.productId, item.quantity + 1)}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </Button>
-                      </div>
-                      <p className="font-semibold text-sm">
-                        R$ {item.subtotal.toFixed(2)}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    <span className="text-sm font-bold">R$ {item.subtotal.toFixed(2)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
           )}
         </div>
 
-        {cart.length > 0 && (
-          <div className="p-6 border-t bg-gray-50">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-lg font-semibold">Total:</span>
-              <span className="text-2xl font-bold text-primary">
-                R$ {getCartTotal().toFixed(2)}
-              </span>
-            </div>
-            <Button 
-              onClick={handleCheckout} 
-              className="w-full gradient-burger hover:opacity-90" 
-              size="lg"
-            >
-              <CreditCard className="w-4 h-4 mr-2" />
-              Finalizar Venda
-            </Button>
+        {/* Payment Section */}
+        <div className="space-y-4 border-t pt-4">
+          <div>
+            <Label>Forma de Pagamento</Label>
+            <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                <SelectItem value="debito">Cartão Débito</SelectItem>
+                <SelectItem value="credito">Cartão Crédito</SelectItem>
+                <SelectItem value="pix">PIX</SelectItem>
+                <SelectItem value="cortesia">Cortesia</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        )}
-      </div>
 
-      {/* Checkout Dialog */}
-      <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Finalizar Venda</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label>Forma de Pagamento</Label>
-              <Select value={paymentMethod} onValueChange={(value: PaymentMethod) => setPaymentMethod(value)}>
+              <Label>Desconto</Label>
+              <Input
+                type="number"
+                value={discount}
+                onChange={(e) => setDiscount(Number(e.target.value))}
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <div>
+              <Label>Tipo</Label>
+              <Select value={discountType} onValueChange={(value) => setDiscountType(value as 'value' | 'percentage')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {paymentMethods.map(method => (
-                    <SelectItem key={method.value} value={method.value}>
-                      {method.label}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="value">R$</SelectItem>
+                  <SelectItem value="percentage">%</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label>Desconto</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={discount}
-                  onChange={(e) => setDiscount(e.target.value)}
-                  placeholder="0"
-                />
-              </div>
-              <div>
-                <Label>Tipo</Label>
-                <Select value={discountType} onValueChange={(value: 'value' | 'percentage') => setDiscountType(value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="value">R$ (Valor)</SelectItem>
-                    <SelectItem value="percentage">% (Porcentagem)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span>Subtotal:</span>
+              <span>R$ {cartTotal.toFixed(2)}</span>
             </div>
-
-            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-              <div className="flex justify-between">
-                <span>Subtotal:</span>
-                <span>R$ {getCartTotal().toFixed(2)}</span>
+            {discount > 0 && (
+              <div className="flex justify-between text-red-600">
+                <span>Desconto:</span>
+                <span>- R$ {discountAmount.toFixed(2)}</span>
               </div>
-              {parseFloat(discount) > 0 && (
-                <div className="flex justify-between text-red-600">
-                  <span>Desconto:</span>
-                  <span>
-                    - R$ {(discountType === 'percentage' 
-                      ? (getCartTotal() * parseFloat(discount)) / 100 
-                      : parseFloat(discount)
-                    ).toFixed(2)}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between text-lg font-bold border-t pt-2">
-                <span>Total:</span>
-                <span>R$ {calculateTotal().toFixed(2)}</span>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => setIsCheckoutOpen(false)}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button 
-                onClick={handleCompleteSale}
-                className="flex-1 gradient-burger hover:opacity-90"
-              >
-                Confirmar Venda
-              </Button>
+            )}
+            <div className="flex justify-between font-bold text-lg border-t pt-2">
+              <span>Total:</span>
+              <span>R$ {finalTotal.toFixed(2)}</span>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+
+          <Button 
+            onClick={handleCompleteSale} 
+            className="w-full" 
+            size="lg"
+            disabled={cart.length === 0}
+          >
+            Finalizar Venda
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };

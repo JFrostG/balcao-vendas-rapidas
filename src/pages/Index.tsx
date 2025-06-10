@@ -17,7 +17,8 @@ const Index = () => {
     return <Login />;
   }
 
-  if (!currentShift?.isActive) {
+  // Admin pode acessar sem turno ativo, cashier precisa de turno
+  if (!currentShift?.isActive && currentUser.role !== 'admin') {
     return <ShiftManager />;
   }
 

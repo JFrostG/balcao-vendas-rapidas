@@ -65,6 +65,34 @@ export const useStore = create<AppState>()(
       currentShift: null,
       shifts: [],
       openShift: (user) => {
+        // Fechar qualquer turno ativo antes de abrir novo
+        const { shifts, sales } = get();
+        const activeShift = shifts.find(shift => shift.isActive);
+        
+        let updatedShifts = shifts;
+        if (activeShift) {
+          const shiftSales = sales.filter(sale => sale.shiftId === activeShift.id);
+          const totalSales = shiftSales.reduce((sum, sale) => sum + sale.total, 0);
+          const totalItems = shiftSales.reduce((sum, sale) => 
+            sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0
+          );
+          
+          const paymentBreakdown = get().getPaymentBreakdown(shiftSales);
+          
+          const closedShift: Shift = {
+            ...activeShift,
+            endTime: new Date(),
+            isActive: false,
+            totalSales,
+            totalItems,
+            paymentBreakdown,
+          };
+          
+          updatedShifts = shifts.map(shift => 
+            shift.id === activeShift.id ? closedShift : shift
+          );
+        }
+        
         const newShift: Shift = {
           id: Date.now().toString(),
           userId: user.id,
@@ -81,10 +109,11 @@ export const useStore = create<AppState>()(
             cortesia: 0,
           },
         };
-        set((state) => ({
+        
+        set({
           currentShift: newShift,
-          shifts: [...state.shifts, newShift],
-        }));
+          shifts: [...updatedShifts, newShift],
+        });
       },
       closeShift: () => {
         const { currentShift, sales } = get();
