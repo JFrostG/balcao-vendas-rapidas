@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, Shift, Product, Sale, CartItem, PaymentMethod, Table, TableStatus } from '../types';
@@ -36,6 +37,7 @@ interface AppState {
   updateTableStatus: (tableNumber: number, status: TableStatus) => void;
   clearTable: (tableNumber: number) => void;
   completeTableSale: (tableNumber: number, paymentMethod: PaymentMethod, discount: number, discountType: 'value' | 'percentage') => void;
+  completeTableSaleWithSplit: (tableNumber: number, payments: Array<{method: PaymentMethod, amount: number}>, discount: number, discountType: 'value' | 'percentage') => void;
   
   // Utils
   getCartTotal: () => number;
@@ -83,12 +85,14 @@ export const useStore = create<AppState>()(
       currentShift: null,
       shifts: [],
       openShift: (user) => {
-        // Fechar qualquer turno ativo antes de abrir novo
+        // Garantir que apenas um turno esteja ativo - fechar qualquer turno ativo
         const { shifts, sales } = get();
-        const activeShift = shifts.find(shift => shift.isActive);
+        const activeShifts = shifts.filter(shift => shift.isActive);
         
         let updatedShifts = shifts;
-        if (activeShift) {
+        
+        // Fechar todos os turnos ativos
+        activeShifts.forEach(activeShift => {
           const shiftSales = sales.filter(sale => sale.shiftId === activeShift.id);
           const totalSales = shiftSales.reduce((sum, sale) => sum + sale.total, 0);
           const totalItems = shiftSales.reduce((sum, sale) => 
@@ -106,10 +110,10 @@ export const useStore = create<AppState>()(
             paymentBreakdown,
           };
           
-          updatedShifts = shifts.map(shift => 
+          updatedShifts = updatedShifts.map(shift => 
             shift.id === activeShift.id ? closedShift : shift
           );
-        }
+        });
         
         const newShift: Shift = {
           id: Date.now().toString(),
@@ -406,6 +410,48 @@ export const useStore = create<AppState>()(
         set((state) => ({
           sales: [...state.sales, newSale],
         }));
+      },
+      completeTableSaleWithSplit: (tableNumber, payments, discount, discountType) => {
+        const { tables, currentShift, currentUser } = get();
+        const table = tables.find(t => t.id === tableNumber);
+        
+        if (!table || !currentShift || !currentUser || table.orders.length === 0) return;
+        
+        const subtotal = table.total;
+        const discountAmount = discountType === 'percentage' 
+          ? (subtotal * discount) / 100 
+          : discount;
+        const total = Math.max(0, subtotal - discountAmount);
+        
+        // Criar uma venda para cada forma de pagamento
+        payments.forEach((payment, index) => {
+          if (payment.amount > 0) {
+            const saleTotal = payment.amount;
+            const newSale: Sale = {
+              id: `${Date.now()}-${index}`,
+              items: table.orders.map(item => ({
+                productId: item.productId,
+                productName: item.productName,
+                price: item.price,
+                quantity: item.quantity,
+                isCourtesy: payment.method === 'cortesia',
+              })),
+              total: saleTotal,
+              paymentMethod: payment.method,
+              discount: index === 0 ? discountAmount : 0, // Aplicar desconto apenas na primeira venda
+              discountType,
+              shiftId: currentShift.id,
+              userId: currentUser.id,
+              userName: currentUser.name,
+              createdAt: new Date(),
+              tableNumber,
+            };
+            
+            set((state) => ({
+              sales: [...state.sales, newSale],
+            }));
+          }
+        });
       },
       
       // Utils

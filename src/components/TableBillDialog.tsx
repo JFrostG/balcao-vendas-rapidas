@@ -8,8 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useStore } from '../store/useStore';
 import { PaymentMethod } from '../types';
-import { CreditCard, Printer } from 'lucide-react';
+import { CreditCard, Printer, Split } from 'lucide-react';
 import { toast } from 'sonner';
+import SplitPaymentDialog from './SplitPaymentDialog';
 
 interface TableBillDialogProps {
   tableNumber: number;
@@ -18,10 +19,11 @@ interface TableBillDialogProps {
 }
 
 const TableBillDialog = ({ tableNumber, onClose, onPayment }: TableBillDialogProps) => {
-  const { tables, completeTableSale } = useStore();
+  const { tables, completeTableSale, completeTableSaleWithSplit } = useStore();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('dinheiro');
   const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState<'value' | 'percentage'>('value');
+  const [showSplitDialog, setShowSplitDialog] = useState(false);
   
   const table = tables.find(t => t.id === tableNumber);
   
@@ -50,7 +52,7 @@ ${discount > 0 ? `Desconto: R$ ${discountAmount.toFixed(2)}\n` : ''}Total: R$ ${
     toast.success('Conta impressa com sucesso!');
   };
 
-  const handlePayment = () => {
+  const handleSimplePayment = () => {
     if (!table.orders.length) {
       toast.error('Mesa sem pedidos');
       return;
@@ -60,47 +62,43 @@ ${discount > 0 ? `Desconto: R$ ${discountAmount.toFixed(2)}\n` : ''}Total: R$ ${
     onPayment(tableNumber);
   };
 
+  const handleSplitPayment = (payments: Array<{method: PaymentMethod, amount: number}>) => {
+    if (!table.orders.length) {
+      toast.error('Mesa sem pedidos');
+      return;
+    }
+
+    completeTableSaleWithSplit(tableNumber, payments, discount, discountType);
+    setShowSplitDialog(false);
+    onPayment(tableNumber);
+    toast.success(`Pagamento dividido realizado - Mesa ${tableNumber} liberada`);
+  };
+
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Conta da Mesa {tableNumber}</DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-4">
-          {/* Items */}
-          <Card>
-            <CardContent className="p-4">
-              <h3 className="font-semibold mb-3">Itens do Pedido</h3>
-              <div className="space-y-2">
-                {table.orders.map(item => (
-                  <div key={item.productId} className="flex justify-between text-sm">
-                    <span>{item.quantity}x {item.productName}</span>
-                    <span>R$ {item.subtotal.toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Payment */}
+    <>
+      <Dialog open onOpenChange={onClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Conta da Mesa {tableNumber}</DialogTitle>
+          </DialogHeader>
+          
           <div className="space-y-4">
-            <div>
-              <Label>Forma de Pagamento</Label>
-              <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                  <SelectItem value="debito">Cartão Débito</SelectItem>
-                  <SelectItem value="credito">Cartão Crédito</SelectItem>
-                  <SelectItem value="pix">PIX</SelectItem>
-                  <SelectItem value="cortesia">Cortesia</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Items */}
+            <Card>
+              <CardContent className="p-4">
+                <h3 className="font-semibold mb-3">Itens do Pedido</h3>
+                <div className="space-y-2">
+                  {table.orders.map(item => (
+                    <div key={item.productId} className="flex justify-between text-sm">
+                      <span>{item.quantity}x {item.productName}</span>
+                      <span>R$ {item.subtotal.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
+            {/* Discount */}
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label>Desconto</Label>
@@ -143,23 +141,55 @@ ${discount > 0 ? `Desconto: R$ ${discountAmount.toFixed(2)}\n` : ''}Total: R$ ${
               </div>
             </div>
 
+            {/* Payment Method for Simple Payment */}
+            <div>
+              <Label>Forma de Pagamento (Simples)</Label>
+              <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="debito">Cartão Débito</SelectItem>
+                  <SelectItem value="credito">Cartão Crédito</SelectItem>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="cortesia">Cortesia</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Button onClick={handlePrintBill} variant="outline" className="w-full">
                 <Printer className="w-4 h-4 mr-2" />
                 Imprimir Conta
               </Button>
-              <Button onClick={handlePayment} className="w-full">
-                <CreditCard className="w-4 h-4 mr-2" />
-                Finalizar Pagamento
-              </Button>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <Button onClick={handleSimplePayment} className="w-full">
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Pagar Simples
+                </Button>
+                <Button onClick={() => setShowSplitDialog(true)} variant="outline" className="w-full">
+                  <Split className="w-4 h-4 mr-2" />
+                  Dividir Conta
+                </Button>
+              </div>
+              
               <Button onClick={onClose} variant="outline" className="w-full">
                 Cancelar
               </Button>
             </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <SplitPaymentDialog
+        isOpen={showSplitDialog}
+        onClose={() => setShowSplitDialog(false)}
+        totalAmount={finalTotal}
+        onConfirm={handleSplitPayment}
+      />
+    </>
   );
 };
 
