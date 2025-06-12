@@ -35,12 +35,14 @@ const TableBillDialog = ({ tableNumber, onClose, onPayment }: TableBillDialogPro
 
   const handlePrintBill = () => {
     const billContent = `
-CONTA DA MESA ${tableNumber}
+================================
+       CONTA DA MESA ${tableNumber}
 ================================
 
 ${table.orders.map(item => 
-  `${item.quantity}x ${item.productName} - R$ ${item.subtotal.toFixed(2)}`
-).join('\n')}
+  `${item.quantity}x ${item.productName}
+                    R$ ${item.subtotal.toFixed(2)}`
+).join('\n\n')}
 
 --------------------------------
 Subtotal: R$ ${cartTotal.toFixed(2)}
@@ -62,10 +64,14 @@ ${discount > 0 ? `Desconto: R$ ${discountAmount.toFixed(2)}\n` : ''}Total: R$ ${
     onPayment(tableNumber);
   };
 
-  const handleSplitPayment = (payments: Array<{method: PaymentMethod, amount: number}>) => {
+  const handleSplitPayment = (payments: Array<{method: PaymentMethod, amount: number}>, shouldPrint: boolean) => {
     if (!table.orders.length) {
       toast.error('Mesa sem pedidos');
       return;
+    }
+
+    if (shouldPrint) {
+      handlePrintBill();
     }
 
     completeTableSaleWithSplit(tableNumber, payments, discount, discountType);
@@ -77,21 +83,24 @@ ${discount > 0 ? `Desconto: R$ ${discountAmount.toFixed(2)}\n` : ''}Total: R$ ${
   return (
     <>
       <Dialog open onOpenChange={onClose}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg bg-white border-green-200">
           <DialogHeader>
-            <DialogTitle>Conta da Mesa {tableNumber}</DialogTitle>
+            <DialogTitle className="text-green-800 text-xl">Conta da Mesa {tableNumber}</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* Items */}
-            <Card>
-              <CardContent className="p-4">
-                <h3 className="font-semibold mb-3">Itens do Pedido</h3>
-                <div className="space-y-2">
+            <Card className="border-green-200">
+              <CardContent className="p-4 bg-green-50">
+                <h3 className="font-semibold mb-4 text-green-800">Itens do Pedido</h3>
+                <div className="space-y-3 max-h-40 overflow-y-auto">
                   {table.orders.map(item => (
-                    <div key={item.productId} className="flex justify-between text-sm">
-                      <span>{item.quantity}x {item.productName}</span>
-                      <span>R$ {item.subtotal.toFixed(2)}</span>
+                    <div key={item.productId} className="flex justify-between items-center bg-white p-3 rounded border border-green-100">
+                      <div>
+                        <span className="font-medium text-green-800">{item.quantity}x {item.productName}</span>
+                        <div className="text-sm text-gray-600">R$ {item.price.toFixed(2)} cada</div>
+                      </div>
+                      <span className="font-bold text-green-600">R$ {item.subtotal.toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -99,24 +108,25 @@ ${discount > 0 ? `Desconto: R$ ${discountAmount.toFixed(2)}\n` : ''}Total: R$ ${
             </Card>
 
             {/* Discount */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label>Desconto</Label>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <Label className="text-green-800 font-medium">Desconto</Label>
                 <Input
                   type="number"
                   value={discount}
                   onChange={(e) => setDiscount(Number(e.target.value))}
                   min="0"
                   step="0.01"
+                  className="border-green-300 focus:border-green-500 focus:ring-green-500"
                 />
               </div>
               <div>
-                <Label>Tipo</Label>
+                <Label className="text-green-800 font-medium">Tipo</Label>
                 <Select value={discountType} onValueChange={(value) => setDiscountType(value as 'value' | 'percentage')}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-green-300 focus:border-green-500">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     <SelectItem value="value">R$</SelectItem>
                     <SelectItem value="percentage">%</SelectItem>
                   </SelectContent>
@@ -124,31 +134,34 @@ ${discount > 0 ? `Desconto: R$ ${discountAmount.toFixed(2)}\n` : ''}Total: R$ ${
               </div>
             </div>
 
-            <div className="space-y-2 text-sm border-t pt-4">
-              <div className="flex justify-between">
-                <span>Subtotal:</span>
-                <span>R$ {cartTotal.toFixed(2)}</span>
-              </div>
-              {discount > 0 && (
-                <div className="flex justify-between text-red-600">
-                  <span>Desconto:</span>
-                  <span>- R$ {discountAmount.toFixed(2)}</span>
+            {/* Total Summary */}
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Subtotal:</span>
+                  <span>R$ {cartTotal.toFixed(2)}</span>
                 </div>
-              )}
-              <div className="flex justify-between font-bold text-lg">
-                <span>Total:</span>
-                <span>R$ {finalTotal.toFixed(2)}</span>
+                {discount > 0 && (
+                  <div className="flex justify-between text-sm text-red-600">
+                    <span>Desconto:</span>
+                    <span>- R$ {discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-xl border-t border-green-200 pt-2">
+                  <span className="text-green-800">Total:</span>
+                  <span className="text-green-600">R$ {finalTotal.toFixed(2)}</span>
+                </div>
               </div>
             </div>
 
             {/* Payment Method for Simple Payment */}
             <div>
-              <Label>Forma de Pagamento (Simples)</Label>
+              <Label className="text-green-800 font-medium">Pagamento Simples</Label>
               <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}>
-                <SelectTrigger>
+                <SelectTrigger className="border-green-300 focus:border-green-500">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   <SelectItem value="dinheiro">Dinheiro</SelectItem>
                   <SelectItem value="debito">Cartão Débito</SelectItem>
                   <SelectItem value="credito">Cartão Crédito</SelectItem>
@@ -158,24 +171,40 @@ ${discount > 0 ? `Desconto: R$ ${discountAmount.toFixed(2)}\n` : ''}Total: R$ ${
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Button onClick={handlePrintBill} variant="outline" className="w-full">
-                <Printer className="w-4 h-4 mr-2" />
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              <Button 
+                onClick={handlePrintBill} 
+                variant="outline" 
+                className="w-full border-green-300 text-green-700 hover:bg-green-50 h-12"
+              >
+                <Printer className="w-5 h-5 mr-2" />
                 Imprimir Conta
               </Button>
               
-              <div className="grid grid-cols-2 gap-2">
-                <Button onClick={handleSimplePayment} className="w-full">
-                  <CreditCard className="w-4 h-4 mr-2" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Button 
+                  onClick={handleSimplePayment} 
+                  className="bg-green-600 hover:bg-green-700 text-white h-12"
+                >
+                  <CreditCard className="w-5 h-5 mr-2" />
                   Pagar Simples
                 </Button>
-                <Button onClick={() => setShowSplitDialog(true)} variant="outline" className="w-full">
-                  <Split className="w-4 h-4 mr-2" />
+                <Button 
+                  onClick={() => setShowSplitDialog(true)} 
+                  variant="outline" 
+                  className="border-green-300 text-green-700 hover:bg-green-50 h-12"
+                >
+                  <Split className="w-5 h-5 mr-2" />
                   Dividir Conta
                 </Button>
               </div>
               
-              <Button onClick={onClose} variant="outline" className="w-full">
+              <Button 
+                onClick={onClose} 
+                variant="outline" 
+                className="w-full border-gray-300 text-gray-600 hover:bg-gray-50 h-12"
+              >
                 Cancelar
               </Button>
             </div>

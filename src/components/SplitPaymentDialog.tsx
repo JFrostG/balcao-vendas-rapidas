@@ -1,54 +1,77 @@
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PaymentMethod } from '../types';
-import { Trash2, Plus } from 'lucide-react';
+import { Printer, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface SplitPaymentDialogProps {
   isOpen: boolean;
   onClose: () => void;
   totalAmount: number;
-  onConfirm: (payments: Array<{method: PaymentMethod, amount: number}>) => void;
-}
-
-interface PaymentSplit {
-  id: string;
-  method: PaymentMethod;
-  amount: number;
+  onConfirm: (payments: Array<{method: PaymentMethod, amount: number}>, shouldPrint: boolean) => void;
 }
 
 const SplitPaymentDialog = ({ isOpen, onClose, totalAmount, onConfirm }: SplitPaymentDialogProps) => {
-  const [payments, setPayments] = useState<PaymentSplit[]>([
-    { id: '1', method: 'dinheiro', amount: 0 }
-  ]);
+  const [payments, setPayments] = useState<{[key in PaymentMethod]: number}>({
+    dinheiro: 0,
+    debito: 0,
+    credito: 0,
+    pix: 0,
+    cortesia: 0
+  });
+  const [showPrintDialog, setShowPrintDialog] = useState(false);
+  const [pendingPayments, setPendingPayments] = useState<Array<{method: PaymentMethod, amount: number}>>([]);
+  
+  const inputRefs = useRef<{[key in PaymentMethod]: HTMLInputElement | null}>({
+    dinheiro: null,
+    debito: null,
+    credito: null,
+    pix: null,
+    cortesia: null
+  });
 
-  const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const paymentMethods: Array<{key: PaymentMethod, label: string, color: string}> = [
+    { key: 'dinheiro', label: 'Dinheiro', color: 'bg-green-100 hover:bg-green-200 border-green-300' },
+    { key: 'debito', label: 'Cartão Débito', color: 'bg-green-100 hover:bg-green-200 border-green-300' },
+    { key: 'credito', label: 'Cartão Crédito', color: 'bg-green-100 hover:bg-green-200 border-green-300' },
+    { key: 'pix', label: 'PIX', color: 'bg-green-100 hover:bg-green-200 border-green-300' },
+    { key: 'cortesia', label: 'Cortesia', color: 'bg-green-100 hover:bg-green-200 border-green-300' }
+  ];
+
+  const totalPaid = Object.values(payments).reduce((sum, amount) => sum + amount, 0);
   const remaining = totalAmount - totalPaid;
 
-  const addPayment = () => {
-    const newPayment: PaymentSplit = {
-      id: Date.now().toString(),
-      method: 'dinheiro',
-      amount: 0
-    };
-    setPayments([...payments, newPayment]);
+  const handlePaymentMethodClick = (method: PaymentMethod) => {
+    const newPayments = { ...payments };
+    const currentTotal = Object.values(newPayments).reduce((sum, amount) => sum + amount, 0);
+    const remainingAmount = totalAmount - currentTotal + newPayments[method];
+    
+    newPayments[method] = remainingAmount;
+    setPayments(newPayments);
+    
+    // Focus on the input field
+    setTimeout(() => {
+      inputRefs.current[method]?.focus();
+      inputRefs.current[method]?.select();
+    }, 100);
   };
 
-  const removePayment = (id: string) => {
-    if (payments.length > 1) {
-      setPayments(payments.filter(p => p.id !== id));
+  const handleAmountChange = (method: PaymentMethod, value: number) => {
+    setPayments(prev => ({
+      ...prev,
+      [method]: Math.max(0, value)
+    }));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, method: PaymentMethod) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleConfirm();
     }
-  };
-
-  const updatePayment = (id: string, field: keyof PaymentSplit, value: any) => {
-    setPayments(payments.map(payment => 
-      payment.id === id ? { ...payment, [field]: value } : payment
-    ));
   };
 
   const handleConfirm = () => {
@@ -62,119 +85,166 @@ const SplitPaymentDialog = ({ isOpen, onClose, totalAmount, onConfirm }: SplitPa
       return;
     }
 
-    const validPayments = payments.filter(p => p.amount > 0);
+    const validPayments = Object.entries(payments)
+      .filter(([_, amount]) => amount > 0)
+      .map(([method, amount]) => ({ method: method as PaymentMethod, amount }));
+
     if (validPayments.length === 0) {
       toast.error('Adicione pelo menos uma forma de pagamento');
       return;
     }
 
-    onConfirm(validPayments);
+    setPendingPayments(validPayments);
+    setShowPrintDialog(true);
   };
 
-  const getPaymentMethodLabel = (method: PaymentMethod) => {
-    switch (method) {
-      case 'dinheiro': return 'Dinheiro';
-      case 'debito': return 'Cartão Débito';
-      case 'credito': return 'Cartão Crédito';
-      case 'pix': return 'PIX';
-      case 'cortesia': return 'Cortesia';
-      default: return method;
-    }
+  const handleFinalConfirm = (shouldPrint: boolean) => {
+    onConfirm(pendingPayments, shouldPrint);
+    setShowPrintDialog(false);
   };
+
+  useEffect(() => {
+    if (isOpen) {
+      setPayments({
+        dinheiro: 0,
+        debito: 0,
+        credito: 0,
+        pix: 0,
+        cortesia: 0
+      });
+    }
+  }, [isOpen]);
+
+  if (showPrintDialog) {
+    return (
+      <Dialog open onOpenChange={() => setShowPrintDialog(false)}>
+        <DialogContent className="max-w-sm bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-green-800">Imprimir Conta?</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <p className="text-center text-gray-700">
+              Deseja imprimir a conta antes de finalizar o pagamento?
+            </p>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <Button 
+                onClick={() => handleFinalConfirm(true)}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Sim, Imprimir
+              </Button>
+              <Button 
+                onClick={() => handleFinalConfirm(false)}
+                variant="outline"
+                className="border-green-300 text-green-700 hover:bg-green-50"
+              >
+                Não Imprimir
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg bg-white border-green-200">
         <DialogHeader>
-          <DialogTitle>Dividir Pagamento</DialogTitle>
+          <DialogTitle className="text-green-800 text-xl">Dividir Pagamento</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4">
-          <div className="bg-muted p-3 rounded">
-            <div className="flex justify-between font-semibold">
-              <span>Total da Conta:</span>
-              <span>R$ {totalAmount.toFixed(2)}</span>
+        <div className="space-y-6">
+          {/* Total */}
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            <div className="flex justify-between items-center">
+              <span className="font-semibold text-green-800">Total da Conta:</span>
+              <span className="text-xl font-bold text-green-600">R$ {totalAmount.toFixed(2)}</span>
             </div>
           </div>
 
+          {/* Payment Methods Grid */}
           <div className="space-y-3">
-            {payments.map((payment, index) => (
-              <div key={payment.id} className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <Label className="text-xs">Forma {index + 1}</Label>
-                  <Select 
-                    value={payment.method} 
-                    onValueChange={(value) => updatePayment(payment.id, 'method', value as PaymentMethod)}
+            <Label className="text-green-800 font-medium">Formas de Pagamento</Label>
+            <div className="grid gap-3">
+              {paymentMethods.map((method) => (
+                <div key={method.key} className="grid grid-cols-2 gap-3 items-center">
+                  {/* Payment Method Button */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handlePaymentMethodClick(method.key)}
+                    className={`${method.color} text-green-800 font-medium h-12 justify-start transition-all`}
                   >
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                      <SelectItem value="debito">Cartão Débito</SelectItem>
-                      <SelectItem value="credito">Cartão Crédito</SelectItem>
-                      <SelectItem value="pix">PIX</SelectItem>
-                      <SelectItem value="cortesia">Cortesia</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    {method.label}
+                  </Button>
+                  
+                  {/* Amount Input */}
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-600 font-medium">
+                      R$
+                    </span>
+                    <Input
+                      ref={(el) => { inputRefs.current[method.key] = el; }}
+                      type="number"
+                      value={payments[method.key] || ''}
+                      onChange={(e) => handleAmountChange(method.key, Number(e.target.value))}
+                      onKeyDown={(e) => handleKeyDown(e, method.key)}
+                      min="0"
+                      step="0.01"
+                      placeholder="0,00"
+                      className="pl-10 h-12 border-green-300 focus:border-green-500 focus:ring-green-500"
+                    />
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <Label className="text-xs">Valor</Label>
-                  <Input
-                    type="number"
-                    value={payment.amount}
-                    onChange={(e) => updatePayment(payment.id, 'amount', Number(e.target.value))}
-                    min="0"
-                    step="0.01"
-                    className="h-9"
-                  />
+              ))}
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="space-y-3 border-t border-green-200 pt-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Total Pago:</span>
+                  <span className="font-medium">R$ {totalPaid.toFixed(2)}</span>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => removePayment(payment.id)}
-                  disabled={payments.length === 1}
-                  className="h-9 w-9"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
               </div>
-            ))}
-          </div>
-
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={addPayment}
-            className="w-full"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Adicionar Forma de Pagamento
-          </Button>
-
-          <div className="space-y-2 text-sm border-t pt-4">
-            <div className="flex justify-between">
-              <span>Total Pago:</span>
-              <span>R$ {totalPaid.toFixed(2)}</span>
-            </div>
-            <div className={`flex justify-between font-bold ${remaining > 0 ? 'text-red-600' : remaining < 0 ? 'text-orange-600' : 'text-green-600'}`}>
-              <span>{remaining > 0 ? 'Falta:' : remaining < 0 ? 'Excesso:' : 'Pago:'}</span>
-              <span>R$ {Math.abs(remaining).toFixed(2)}</span>
+              <div className={`text-right ${remaining > 0 ? 'text-red-600' : remaining < 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                <div className="font-bold text-lg">
+                  {remaining > 0 ? 'Falta:' : remaining < 0 ? 'Excesso:' : 'Completo:'}
+                </div>
+                <div className="text-xl font-bold">
+                  R$ {Math.abs(remaining).toFixed(2)}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-2">
+          {/* Action Buttons */}
+          <div className="grid grid-cols-2 gap-3">
             <Button 
               onClick={handleConfirm} 
-              className="w-full"
               disabled={remaining > 0.01 || remaining < -0.01}
+              className="bg-green-600 hover:bg-green-700 text-white h-12 text-base font-medium"
             >
-              Confirmar Pagamento
+              <Check className="w-5 h-5 mr-2" />
+              Confirmar
             </Button>
-            <Button onClick={onClose} variant="outline" className="w-full">
+            <Button 
+              onClick={onClose} 
+              variant="outline" 
+              className="border-green-300 text-green-700 hover:bg-green-50 h-12 text-base"
+            >
               Cancelar
             </Button>
+          </div>
+          
+          <div className="text-xs text-center text-gray-500 border-t border-green-100 pt-3">
+            💡 Dica: Clique na forma de pagamento para receber o valor total • Pressione Enter para confirmar
           </div>
         </div>
       </DialogContent>
