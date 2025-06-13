@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useStore } from '../store/useStore';
-import { delivery } from 'lucide-react';
+import { Truck, Trash } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface DeliveryOrder {
@@ -145,7 +144,7 @@ const DeliveryView = () => {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <delivery className="w-8 h-8" />
+          <Truck className="w-8 h-8" />
           Sistema de Entregas
         </h1>
         <Button 
@@ -316,7 +315,7 @@ const DeliveryView = () => {
                             variant="outline"
                             onClick={() => removeItemFromOrder(item.productId)}
                           >
-                            <trash className="w-4 h-4" />
+                            <Trash className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>

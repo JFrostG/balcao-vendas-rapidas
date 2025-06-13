@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useStore } from '../store/useStore';
 import { PaymentMethod } from '../types';
-import { trash, edit } from 'lucide-react';
+import { Trash, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 
 const SalesView = () => {
@@ -86,13 +85,13 @@ const SalesView = () => {
                         setNewPaymentMethod(sale.paymentMethod);
                       }}
                     >
-                      <edit className="w-4 h-4" />
+                      <Edit className="w-4 h-4" />
                     </Button>
                     
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="outline" size="sm">
-                          <trash className="w-4 h-4" />
+                          <Trash className="w-4 h-4" />
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
