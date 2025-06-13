@@ -1,3 +1,4 @@
+
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useStore } from '../store/useStore';
@@ -9,7 +10,8 @@ import {
   LogOut,
   History,
   Receipt,
-  Truck
+  Truck,
+  Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -40,8 +42,11 @@ const Navigation = ({ currentView, onViewChange }: NavigationProps) => {
     { id: 'sales', label: 'Mesas', icon: ShoppingCart },
     { id: 'sales-view', label: 'Vendas', icon: Receipt },
     { id: 'delivery', label: 'Entregas', icon: Truck },
-    { id: 'products', label: 'Produtos', icon: Package },
-    { id: 'reports', label: 'Relatórios', icon: BarChart3 },
+    ...(currentUser?.role === 'admin' ? [
+      { id: 'products', label: 'Produtos', icon: Package },
+      { id: 'reports', label: 'Relatórios', icon: BarChart3 },
+      { id: 'users', label: 'Usuários', icon: Users },
+    ] : []),
     { id: 'shift-history', label: 'Histórico', icon: History },
     { id: 'shift', label: 'Turno', icon: Clock },
   ];

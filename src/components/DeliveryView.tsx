@@ -3,22 +3,28 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useStore } from '../store/useStore';
-import { Truck, Trash } from 'lucide-react';
+import { Truck, Trash, Printer, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
+import DeliveryStatusButtons from './DeliveryStatusButtons';
 
 interface DeliveryOrder {
   id: string;
   customerName: string;
   customerPhone: string;
-  customerAddress: string;
+  address: {
+    street: string;
+    number: string;
+    neighborhood: string;
+    complement?: string;
+  };
   items: Array<{
     productId: string;
     productName: string;
     quantity: number;
     price: number;
+    notes?: string;
   }>;
   total: number;
   status: 'pending' | 'preparing' | 'out-for-delivery' | 'delivered';
@@ -33,12 +39,18 @@ const DeliveryView = () => {
   const [newOrder, setNewOrder] = useState({
     customerName: '',
     customerPhone: '',
-    customerAddress: '',
+    address: {
+      street: '',
+      number: '',
+      neighborhood: '',
+      complement: ''
+    },
     deliveryFee: 5.00
   });
   const [orderItems, setOrderItems] = useState<Array<{
     productId: string;
     quantity: number;
+    notes?: string;
   }>>([]);
 
   const availableProducts = products.filter(p => p.available);
@@ -84,7 +96,7 @@ const DeliveryView = () => {
   };
 
   const createDeliveryOrder = () => {
-    if (!newOrder.customerName || !newOrder.customerPhone || !newOrder.customerAddress || orderItems.length === 0) {
+    if (!newOrder.customerName || !newOrder.customerPhone || !newOrder.address.street || !newOrder.address.number || !newOrder.address.neighborhood || orderItems.length === 0) {
       toast.error('Preencha todos os campos e adicione pelo menos um item');
       return;
     }
@@ -107,7 +119,17 @@ const DeliveryView = () => {
     };
 
     setDeliveryOrders([...deliveryOrders, order]);
-    setNewOrder({ customerName: '', customerPhone: '', customerAddress: '', deliveryFee: 5.00 });
+    setNewOrder({ 
+      customerName: '', 
+      customerPhone: '', 
+      address: {
+        street: '',
+        number: '',
+        neighborhood: '',
+        complement: ''
+      }, 
+      deliveryFee: 5.00 
+    });
     setOrderItems([]);
     setShowNewOrder(false);
     toast.success('Pedido de entrega criado com sucesso!');
@@ -120,24 +142,9 @@ const DeliveryView = () => {
     toast.success('Status do pedido atualizado!');
   };
 
-  const getStatusColor = (status: DeliveryOrder['status']) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-500';
-      case 'preparing': return 'bg-blue-500';
-      case 'out-for-delivery': return 'bg-orange-500';
-      case 'delivered': return 'bg-green-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const getStatusLabel = (status: DeliveryOrder['status']) => {
-    switch (status) {
-      case 'pending': return 'Pendente';
-      case 'preparing': return 'Preparando';
-      case 'out-for-delivery': return 'Saiu para entrega';
-      case 'delivered': return 'Entregue';
-      default: return 'Desconhecido';
-    }
+  const printDeliveryOrder = (order: DeliveryOrder) => {
+    console.log('Imprimir pedido:', order);
+    toast.success('Enviando para impressão...');
   };
 
   return (
@@ -150,6 +157,7 @@ const DeliveryView = () => {
         <Button 
           onClick={() => setShowNewOrder(true)}
           disabled={!currentShift?.isActive}
+          className="bg-green-600 hover:bg-green-700"
         >
           Novo Pedido
         </Button>
@@ -172,16 +180,22 @@ const DeliveryView = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">#{order.id.slice(-6)}</CardTitle>
-                <Badge className={`${getStatusColor(order.status)} text-white`}>
-                  {getStatusLabel(order.status)}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => printDeliveryOrder(order)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
               <p className="text-sm text-muted-foreground">
                 {order.createdAt.toLocaleString('pt-BR')}
               </p>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2 mb-4">
+              <div className="space-y-3 mb-4">
                 <div>
                   <strong>Cliente:</strong> {order.customerName}
                 </div>
@@ -189,7 +203,17 @@ const DeliveryView = () => {
                   <strong>Telefone:</strong> {order.customerPhone}
                 </div>
                 <div>
-                  <strong>Endereço:</strong> {order.customerAddress}
+                  <div className="flex items-center gap-1 mb-1">
+                    <MapPin className="w-4 h-4" />
+                    <strong>Endereço:</strong>
+                  </div>
+                  <div className="text-sm">
+                    <div>{order.address.street}, {order.address.number}</div>
+                    <div>Bairro: {order.address.neighborhood}</div>
+                    {order.address.complement && (
+                      <div>Complemento: {order.address.complement}</div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <strong>Total:</strong> R$ {order.total.toFixed(2)}
@@ -200,25 +224,20 @@ const DeliveryView = () => {
                 <strong>Itens:</strong>
                 {order.items.map((item, index) => (
                   <div key={index} className="text-sm">
-                    {item.quantity}x {item.productName}
+                    <div>{item.quantity}x {item.productName}</div>
+                    {item.notes && (
+                      <div className="text-xs text-muted-foreground ml-2">
+                        Obs: {item.notes}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
 
-              <Select
-                value={order.status}
-                onValueChange={(status) => updateOrderStatus(order.id, status as DeliveryOrder['status'])}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pendente</SelectItem>
-                  <SelectItem value="preparing">Preparando</SelectItem>
-                  <SelectItem value="out-for-delivery">Saiu para entrega</SelectItem>
-                  <SelectItem value="delivered">Entregue</SelectItem>
-                </SelectContent>
-              </Select>
+              <DeliveryStatusButtons
+                currentStatus={order.status}
+                onStatusChange={(status) => updateOrderStatus(order.id, status)}
+              />
             </CardContent>
           </Card>
         ))}
@@ -248,12 +267,50 @@ const DeliveryView = () => {
               </div>
             </div>
             
-            <div>
-              <Label>Endereço de Entrega</Label>
-              <Input
-                value={newOrder.customerAddress}
-                onChange={(e) => setNewOrder({ ...newOrder, customerAddress: e.target.value })}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Rua</Label>
+                <Input
+                  value={newOrder.address.street}
+                  onChange={(e) => setNewOrder({ 
+                    ...newOrder, 
+                    address: { ...newOrder.address, street: e.target.value }
+                  })}
+                />
+              </div>
+              <div>
+                <Label>Número</Label>
+                <Input
+                  value={newOrder.address.number}
+                  onChange={(e) => setNewOrder({ 
+                    ...newOrder, 
+                    address: { ...newOrder.address, number: e.target.value }
+                  })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Bairro</Label>
+                <Input
+                  value={newOrder.address.neighborhood}
+                  onChange={(e) => setNewOrder({ 
+                    ...newOrder, 
+                    address: { ...newOrder.address, neighborhood: e.target.value }
+                  })}
+                />
+              </div>
+              <div>
+                <Label>Complemento</Label>
+                <Input
+                  value={newOrder.address.complement}
+                  onChange={(e) => setNewOrder({ 
+                    ...newOrder, 
+                    address: { ...newOrder.address, complement: e.target.value }
+                  })}
+                />
+              </div>
             </div>
 
             <div>
@@ -329,7 +386,7 @@ const DeliveryView = () => {
             )}
 
             <div className="flex gap-2">
-              <Button onClick={createDeliveryOrder}>
+              <Button onClick={createDeliveryOrder} className="bg-green-600 hover:bg-green-700">
                 Criar Pedido
               </Button>
               <Button variant="outline" onClick={() => setShowNewOrder(false)}>

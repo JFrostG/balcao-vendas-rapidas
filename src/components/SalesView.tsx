@@ -5,13 +5,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useStore } from '../store/useStore';
 import { PaymentMethod } from '../types';
-import { Trash, Edit } from 'lucide-react';
+import { Trash, Edit, Printer } from 'lucide-react';
 import { toast } from 'sonner';
+import SplitClosedSaleDialog from './SplitClosedSaleDialog';
+import QuickPaymentButtons from './QuickPaymentButtons';
 
 const SalesView = () => {
   const { sales, deleteSale, updateSalePaymentMethod, currentShift } = useStore();
   const [editingSale, setEditingSale] = useState<string | null>(null);
   const [newPaymentMethod, setNewPaymentMethod] = useState<PaymentMethod>('dinheiro');
+  const [splitSale, setSplitSale] = useState<any>(null);
 
   const currentShiftSales = currentShift ? 
     sales.filter(sale => sale.shiftId === currentShift.id) : 
@@ -26,6 +29,13 @@ const SalesView = () => {
     updateSalePaymentMethod(saleId, newPaymentMethod);
     setEditingSale(null);
     toast.success('Forma de pagamento atualizada!');
+  };
+
+  const handlePaymentSelect = (method: PaymentMethod) => {
+    setNewPaymentMethod(method);
+    if (editingSale) {
+      handleUpdatePaymentMethod(editingSale);
+    }
   };
 
   const getTableName = (tableNumber?: number) => {
@@ -51,8 +61,14 @@ const SalesView = () => {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Vendas do Turno</h1>
-        <div className="text-lg font-semibold text-green-600">
-          Total: R$ {totalSales.toFixed(2)}
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm">
+            <Printer className="w-4 h-4 mr-2" />
+            Imprimir Relatório
+          </Button>
+          <div className="text-lg font-semibold text-green-600">
+            Total: R$ {totalSales.toFixed(2)}
+          </div>
         </div>
       </div>
 
@@ -77,6 +93,13 @@ const SalesView = () => {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSplitSale(sale)}
+                    >
+                      Dividir Conta
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -168,27 +191,19 @@ const SalesView = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">
-            <Select value={newPaymentMethod} onValueChange={(value) => setNewPaymentMethod(value as PaymentMethod)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                <SelectItem value="debito">Cartão Débito</SelectItem>
-                <SelectItem value="credito">Cartão Crédito</SelectItem>
-                <SelectItem value="pix">PIX</SelectItem>
-                <SelectItem value="cortesia">Cortesia</SelectItem>
-              </SelectContent>
-            </Select>
+            <QuickPaymentButtons onPaymentSelect={handlePaymentSelect} />
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => editingSale && handleUpdatePaymentMethod(editingSale)}>
-              Atualizar
-            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SplitClosedSaleDialog
+        isOpen={splitSale !== null}
+        onClose={() => setSplitSale(null)}
+        sale={splitSale}
+      />
     </div>
   );
 };

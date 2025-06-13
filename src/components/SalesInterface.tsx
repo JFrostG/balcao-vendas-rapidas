@@ -9,6 +9,8 @@ import { useStore } from '../store/useStore';
 import { PaymentMethod, ProductCategory } from '../types';
 import { Plus, Minus, Trash2, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import QuickPaymentButtons from './QuickPaymentButtons';
+import ProductCodeInput from './ProductCodeInput';
 
 const SalesInterface = () => {
   const {
@@ -28,6 +30,7 @@ const SalesInterface = () => {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('dinheiro');
   const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState<'value' | 'percentage'>('value');
+  const [showProductCode, setShowProductCode] = useState(false);
 
   // Se não houver turno ativo, mostrar aviso
   if (!currentShift?.isActive) {
@@ -62,12 +65,38 @@ const SalesInterface = () => {
     outro: 'Outros'
   };
 
-  const handleAddToCart = (product: any) => {
+  const handleAddToCart = (product: any, quantity = 1) => {
     if (!currentShift?.isActive) {
       toast.error('É necessário abrir um turno para adicionar produtos');
       return;
     }
-    addToCart(product);
+    addToCart(product, quantity);
+  };
+
+  const handlePaymentSelect = (method: PaymentMethod) => {
+    setPaymentMethod(method);
+    if (cart.length > 0) {
+      handleCompleteSale();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && cart.length > 0) {
+      handleCompleteSale();
+    }
+    
+    // Atalhos numéricos para formas de pagamento
+    const keyMap: {[key: string]: PaymentMethod} = {
+      '1': 'dinheiro',
+      '2': 'debito', 
+      '3': 'credito',
+      '4': 'pix',
+      '5': 'cortesia'
+    };
+    
+    if (keyMap[e.key]) {
+      handlePaymentSelect(keyMap[e.key]);
+    }
   };
 
   const handleCompleteSale = () => {
@@ -92,9 +121,11 @@ const SalesInterface = () => {
   const finalTotal = Math.max(0, cartTotal - discountAmount);
 
   return (
-    <div className="h-full flex">
+    <div className="h-full flex" onKeyDown={handleKeyDown} tabIndex={0}>
       {/* Products Grid */}
       <div className="flex-1 p-4 overflow-y-auto">
+        {/* Se não houver turno ativo, mostrar aviso */}
+        {/* Se houver turno ativo, mostrar a lista de produtos */}
         <div className="mb-4">
           <Label>Categoria</Label>
           <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as ProductCategory | 'all')}>
@@ -116,6 +147,9 @@ const SalesInterface = () => {
             <Card key={product.id} className="cursor-pointer hover:shadow-lg transition-shadow">
               <CardContent className="p-4" onClick={() => handleAddToCart(product)}>
                 <h3 className="font-semibold text-sm mb-2">{product.name}</h3>
+                {product.code && (
+                  <p className="text-xs text-muted-foreground mb-1">Código: {product.code}</p>
+                )}
                 <p className="text-lg font-bold text-primary">R$ {product.price.toFixed(2)}</p>
                 <Badge variant="secondary" className="text-xs mt-2">
                   {categoryLabels[product.category]}
@@ -189,19 +223,11 @@ const SalesInterface = () => {
         {/* Payment Section */}
         <div className="space-y-4 border-t pt-4">
           <div>
-            <Label>Forma de Pagamento</Label>
-            <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                <SelectItem value="debito">Cartão Débito</SelectItem>
-                <SelectItem value="credito">Cartão Crédito</SelectItem>
-                <SelectItem value="pix">PIX</SelectItem>
-                <SelectItem value="cortesia">Cortesia</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label>Forma de Pagamento Rápida</Label>
+            <QuickPaymentButtons 
+              onPaymentSelect={handlePaymentSelect}
+              onKeyDown={handleKeyDown}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-2">
@@ -252,10 +278,16 @@ const SalesInterface = () => {
             size="lg"
             disabled={cart.length === 0}
           >
-            Finalizar Venda
+            Finalizar Venda [Enter]
           </Button>
         </div>
       </div>
+
+      <ProductCodeInput 
+        onProductAdd={handleAddToCart}
+        isVisible={showProductCode}
+        onToggle={() => setShowProductCode(!showProductCode)}
+      />
     </div>
   );
 };

@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, Shift, Product, Sale, CartItem, PaymentMethod, Table, TableStatus } from '../types';
@@ -41,6 +40,12 @@ interface AppState {
   completeTableSale: (tableNumber: number, paymentMethod: PaymentMethod, discount: number, discountType: 'value' | 'percentage') => void;
   completeTableSaleWithSplit: (tableNumber: number, payments: Array<{method: PaymentMethod, amount: number}>, discount: number, discountType: 'value' | 'percentage') => void;
   
+  // Users
+  users: User[];
+  addUser: (user: Omit<User, 'id'>) => void;
+  updateUser: (id: string, user: Partial<User>) => void;
+  deleteUser: (id: string) => void;
+  
   // Utils
   getCartTotal: () => number;
   getCurrentShiftSales: () => Sale[];
@@ -54,16 +59,16 @@ const defaultUsers: User[] = [
   { id: '3', username: 'caixa2', name: 'Maria Santos', role: 'cashier' },
 ];
 
-// Default products for demo
+// Enhanced default products with codes
 const defaultProducts: Product[] = [
-  { id: '1', name: 'Big Burger', price: 25.90, category: 'hamburguer', available: true },
-  { id: '2', name: 'Cheese Burger', price: 22.90, category: 'hamburguer', available: true },
-  { id: '3', name: 'X-Bacon', price: 28.90, category: 'hamburguer', available: true },
-  { id: '4', name: 'Coca-Cola 350ml', price: 6.50, category: 'bebida', available: true },
-  { id: '5', name: 'Suco Natural', price: 8.90, category: 'bebida', available: true },
-  { id: '6', name: 'Batata Frita', price: 12.90, category: 'acompanhamento', available: true },
-  { id: '7', name: 'Onion Rings', price: 14.90, category: 'acompanhamento', available: true },
-  { id: '8', name: 'Milk Shake', price: 16.90, category: 'sobremesa', available: true },
+  { id: '1', name: 'Big Burger', price: 25.90, category: 'hamburguer', available: true, code: '001' },
+  { id: '2', name: 'Cheese Burger', price: 22.90, category: 'hamburguer', available: true, code: '002' },
+  { id: '3', name: 'X-Bacon', price: 28.90, category: 'hamburguer', available: true, code: '003' },
+  { id: '4', name: 'Coca-Cola 350ml', price: 6.50, category: 'bebida', available: true, code: '004' },
+  { id: '5', name: 'Suco Natural', price: 8.90, category: 'bebida', available: true, code: '005' },
+  { id: '6', name: 'Batata Frita', price: 12.90, category: 'acompanhamento', available: true, code: '006' },
+  { id: '7', name: 'Onion Rings', price: 14.90, category: 'acompanhamento', available: true, code: '007' },
+  { id: '8', name: 'Milk Shake', price: 16.90, category: 'sobremesa', available: true, code: '008' },
 ];
 
 // Initialize tables 1-15 + balcão (id: 0)
@@ -183,6 +188,7 @@ export const useStore = create<AppState>()(
         const newProduct: Product = {
           ...product,
           id: Date.now().toString(),
+          code: product.code || Date.now().toString().slice(-3),
         };
         set((state) => ({
           products: [...state.products, newProduct],
@@ -198,6 +204,30 @@ export const useStore = create<AppState>()(
       deleteProduct: (id) => {
         set((state) => ({
           products: state.products.filter(product => product.id !== id),
+        }));
+      },
+      
+      // Users
+      users: defaultUsers,
+      addUser: (user) => {
+        const newUser: User = {
+          ...user,
+          id: Date.now().toString(),
+        };
+        set((state) => ({
+          users: [...state.users, newUser],
+        }));
+      },
+      updateUser: (id, userData) => {
+        set((state) => ({
+          users: state.users.map(user =>
+            user.id === id ? { ...user, ...userData } : user
+          ),
+        }));
+      },
+      deleteUser: (id) => {
+        set((state) => ({
+          users: state.users.filter(user => user.id !== id),
         }));
       },
       
@@ -518,6 +548,7 @@ export const useStore = create<AppState>()(
         products: state.products,
         sales: state.sales,
         tables: state.tables,
+        users: state.users,
       }),
     }
   )
