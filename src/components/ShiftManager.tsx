@@ -1,6 +1,6 @@
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useStore } from '../store/useStore';
 import { Clock, DollarSign, ShoppingBag, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
@@ -28,10 +28,11 @@ const ShiftManager = () => {
   };
 
   const handleLogout = () => {
-    if (currentShift?.isActive) {
-      toast.error('Feche o turno antes de sair');
-      return;
-    }
+    setCurrentUser(null);
+    toast.success('Logout realizado com sucesso');
+  };
+
+  const handleForceLogout = () => {
     setCurrentUser(null);
     toast.success('Logout realizado com sucesso');
   };
@@ -90,10 +91,29 @@ const ShiftManager = () => {
           <Button onClick={handleCloseShift} variant="destructive">
             Fechar Turno
           </Button>
-          <Button onClick={handleLogout} variant="outline">
-            <LogOut className="w-4 h-4 mr-2" />
-            Sair
-          </Button>
+          
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline">
+                <LogOut className="w-4 h-4 mr-2" />
+                Sair
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Sair sem fechar turno?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Você tem um turno ativo. Deseja sair mesmo assim? O turno continuará ativo.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleForceLogout}>
+                  Sair mesmo assim
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 

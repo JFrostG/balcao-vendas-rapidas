@@ -9,7 +9,7 @@ import TableBillDialog from './TableBillDialog';
 import { toast } from 'sonner';
 
 const TableManager = () => {
-  const { tables, updateTableStatus, clearTable } = useStore();
+  const { tables, updateTableStatus, clearTable, currentShift } = useStore();
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [showBillDialog, setShowBillDialog] = useState(false);
@@ -41,6 +41,11 @@ const TableManager = () => {
   };
 
   const handleTableClick = (tableNumber: number, status: TableStatus) => {
+    if (!currentShift?.isActive) {
+      toast.error('É necessário abrir um turno para usar as mesas');
+      return;
+    }
+    
     setSelectedTable(tableNumber);
     
     if (status === 'available' || status === 'occupied') {
@@ -52,43 +57,78 @@ const TableManager = () => {
 
   const handleRequestBill = (tableNumber: number) => {
     updateTableStatus(tableNumber, 'requesting-bill');
-    toast.success(`Conta solicitada para Mesa ${tableNumber}`);
+    toast.success(`Conta solicitada para ${tableNumber === 0 ? 'Balcão' : `Mesa ${tableNumber}`}`);
     setShowOrderDialog(false);
   };
 
   const handlePayment = (tableNumber: number) => {
     clearTable(tableNumber);
-    toast.success(`Pagamento realizado - Mesa ${tableNumber} liberada`);
+    toast.success(`Pagamento realizado - ${tableNumber === 0 ? 'Balcão' : `Mesa ${tableNumber}`} liberada`);
     setShowBillDialog(false);
     setSelectedTable(null);
   };
+
+  // Separar balcão das outras mesas
+  const balcao = tables.find(t => t.id === 0);
+  const regularTables = tables.filter(t => t.id !== 0);
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Gerenciamento de Mesas</h1>
       
-      <div className="grid grid-cols-5 gap-4 max-w-4xl mx-auto">
-        {tables.map((table) => (
-          <Card 
-            key={table.id}
-            className={`cursor-pointer transition-all duration-200 ${getTableColor(table.status)}`}
-            onClick={() => handleTableClick(table.id, table.status)}
-          >
-            <CardContent className="p-6 text-center">
-              <div className="text-white font-bold text-lg">
-                Mesa {table.id}
-              </div>
-              <div className="text-white text-sm mt-2">
-                {getStatusText(table.status)}
-              </div>
-              {table.status === 'occupied' && (
-                <div className="text-white text-xs mt-1">
-                  R$ {table.total.toFixed(2)}
+      {/* Balcão */}
+      {balcao && (
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold mb-4">Balcão - Vendas Rápidas</h2>
+          <div className="flex justify-center">
+            <Card 
+              className={`cursor-pointer transition-all duration-200 ${getTableColor(balcao.status)} w-48`}
+              onClick={() => handleTableClick(balcao.id, balcao.status)}
+            >
+              <CardContent className="p-6 text-center">
+                <div className="text-white font-bold text-lg">
+                  Balcão
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                <div className="text-white text-sm mt-2">
+                  {getStatusText(balcao.status)}
+                </div>
+                {balcao.status === 'occupied' && (
+                  <div className="text-white text-xs mt-1">
+                    R$ {balcao.total.toFixed(2)}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+      
+      {/* Mesas regulares */}
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Mesas</h2>
+        <div className="grid grid-cols-5 gap-4 max-w-4xl mx-auto">
+          {regularTables.map((table) => (
+            <Card 
+              key={table.id}
+              className={`cursor-pointer transition-all duration-200 ${getTableColor(table.status)}`}
+              onClick={() => handleTableClick(table.id, table.status)}
+            >
+              <CardContent className="p-6 text-center">
+                <div className="text-white font-bold text-lg">
+                  Mesa {table.id}
+                </div>
+                <div className="text-white text-sm mt-2">
+                  {getStatusText(table.status)}
+                </div>
+                {table.status === 'occupied' && (
+                  <div className="text-white text-xs mt-1">
+                    R$ {table.total.toFixed(2)}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
       <div className="mt-8 flex justify-center gap-6 text-sm">
@@ -106,7 +146,7 @@ const TableManager = () => {
         </div>
       </div>
 
-      {showOrderDialog && selectedTable && (
+      {showOrderDialog && selectedTable !== null && (
         <TableOrderDialog
           tableNumber={selectedTable}
           onClose={() => {
@@ -117,7 +157,7 @@ const TableManager = () => {
         />
       )}
 
-      {showBillDialog && selectedTable && (
+      {showBillDialog && selectedTable !== null && (
         <TableBillDialog
           tableNumber={selectedTable}
           onClose={() => {

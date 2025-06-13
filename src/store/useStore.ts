@@ -28,6 +28,8 @@ interface AppState {
   updateCartQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   completeSale: (paymentMethod: PaymentMethod, discount: number, discountType: 'value' | 'percentage') => void;
+  deleteSale: (saleId: string) => void;
+  updateSalePaymentMethod: (saleId: string, paymentMethod: PaymentMethod) => void;
   
   // Tables
   tables: Table[];
@@ -64,14 +66,23 @@ const defaultProducts: Product[] = [
   { id: '8', name: 'Milk Shake', price: 16.90, category: 'sobremesa', available: true },
 ];
 
-// Initialize tables 1-15
+// Initialize tables 1-15 + balcão (id: 0)
 const initializeTables = (): Table[] => {
-  return Array.from({ length: 15 }, (_, index) => ({
+  const regularTables = Array.from({ length: 15 }, (_, index) => ({
     id: index + 1,
     status: 'available' as TableStatus,
     orders: [],
     total: 0,
   }));
+  
+  const balcao: Table = {
+    id: 0,
+    status: 'available' as TableStatus,
+    orders: [],
+    total: 0,
+  };
+  
+  return [balcao, ...regularTables];
 };
 
 export const useStore = create<AppState>()(
@@ -194,6 +205,11 @@ export const useStore = create<AppState>()(
       sales: [],
       cart: [],
       addToCart: (product, quantity = 1) => {
+        const { currentShift } = get();
+        if (!currentShift?.isActive) {
+          return; // Bloquear sem turno ativo
+        }
+        
         set((state) => {
           const existingItem = state.cart.find(item => item.productId === product.id);
           if (existingItem) {
@@ -262,6 +278,7 @@ export const useStore = create<AppState>()(
           userId: currentUser.id,
           userName: currentUser.name,
           createdAt: new Date(),
+          tableNumber: 0, // Balcão
         };
         
         set((state) => ({
@@ -269,10 +286,27 @@ export const useStore = create<AppState>()(
           cart: [],
         }));
       },
+      deleteSale: (saleId) => {
+        set((state) => ({
+          sales: state.sales.filter(sale => sale.id !== saleId),
+        }));
+      },
+      updateSalePaymentMethod: (saleId, paymentMethod) => {
+        set((state) => ({
+          sales: state.sales.map(sale =>
+            sale.id === saleId ? { ...sale, paymentMethod } : sale
+          ),
+        }));
+      },
       
       // Tables
       tables: initializeTables(),
       addToTable: (tableNumber, product, quantity = 1) => {
+        const { currentShift } = get();
+        if (!currentShift?.isActive) {
+          return; // Bloquear sem turno ativo
+        }
+        
         set((state) => {
           const updatedTables = state.tables.map(table => {
             if (table.id === tableNumber) {

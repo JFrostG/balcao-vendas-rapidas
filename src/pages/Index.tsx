@@ -8,6 +8,8 @@ import TableManager from '../components/TableManager';
 import ProductManager from '../components/ProductManager';
 import Reports from '../components/Reports';
 import ShiftHistory from '../components/ShiftHistory';
+import SalesView from '../components/SalesView';
+import DeliveryView from '../components/DeliveryView';
 
 const Index = () => {
   const { currentUser, currentShift } = useStore();
@@ -26,6 +28,10 @@ const Index = () => {
     switch (currentView) {
       case 'sales':
         return <TableManager />;
+      case 'sales-view':
+        return <SalesView />;
+      case 'delivery':
+        return <DeliveryView />;
       case 'products':
         return <ProductManager />;
       case 'reports':

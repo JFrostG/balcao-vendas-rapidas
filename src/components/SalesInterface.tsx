@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,8 +29,8 @@ const SalesInterface = () => {
   const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState<'value' | 'percentage'>('value');
 
-  // Se não houver turno ativo e usuário não for admin, mostrar aviso
-  if (!currentShift?.isActive && currentUser?.role !== 'admin') {
+  // Se não houver turno ativo, mostrar aviso
+  if (!currentShift?.isActive) {
     return (
       <div className="p-4 flex items-center justify-center h-full">
         <Card className="w-full max-w-md text-center">
@@ -49,9 +48,6 @@ const SalesInterface = () => {
     );
   }
 
-  // Se for admin sem turno, mostrar aviso mas permitir acesso
-  const showTurnWarning = currentUser?.role === 'admin' && !currentShift?.isActive;
-
   const filteredProducts = products.filter(product => 
     product.available && (selectedCategory === 'all' || product.category === selectedCategory)
   );
@@ -66,14 +62,22 @@ const SalesInterface = () => {
     outro: 'Outros'
   };
 
+  const handleAddToCart = (product: any) => {
+    if (!currentShift?.isActive) {
+      toast.error('É necessário abrir um turno para adicionar produtos');
+      return;
+    }
+    addToCart(product);
+  };
+
   const handleCompleteSale = () => {
     if (cart.length === 0) {
       toast.error('Carrinho vazio');
       return;
     }
 
-    if (showTurnWarning) {
-      toast.error('Abra um turno para registrar vendas');
+    if (!currentShift?.isActive) {
+      toast.error('É necessário abrir um turno para realizar vendas');
       return;
     }
 
@@ -91,17 +95,6 @@ const SalesInterface = () => {
     <div className="h-full flex">
       {/* Products Grid */}
       <div className="flex-1 p-4 overflow-y-auto">
-        {showTurnWarning && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-yellow-600" />
-              <span className="text-sm text-yellow-800">
-                Modo Admin: Sem turno ativo. Vendas não serão registradas.
-              </span>
-            </div>
-          </div>
-        )}
-
         <div className="mb-4">
           <Label>Categoria</Label>
           <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as ProductCategory | 'all')}>
@@ -121,7 +114,7 @@ const SalesInterface = () => {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filteredProducts.map(product => (
             <Card key={product.id} className="cursor-pointer hover:shadow-lg transition-shadow">
-              <CardContent className="p-4" onClick={() => addToCart(product)}>
+              <CardContent className="p-4" onClick={() => handleAddToCart(product)}>
                 <h3 className="font-semibold text-sm mb-2">{product.name}</h3>
                 <p className="text-lg font-bold text-primary">R$ {product.price.toFixed(2)}</p>
                 <Badge variant="secondary" className="text-xs mt-2">

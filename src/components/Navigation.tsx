@@ -1,5 +1,6 @@
 
 import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useStore } from '../store/useStore';
 import { 
   ShoppingCart, 
@@ -7,7 +8,9 @@ import {
   BarChart3, 
   Clock, 
   LogOut,
-  History
+  History,
+  Receipt,
+  delivery
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -25,16 +28,19 @@ const Navigation = ({ currentView, onViewChange }: NavigationProps) => {
   };
 
   const handleLogout = () => {
-    if (currentShift?.isActive) {
-      toast.error('Feche o turno antes de sair');
-      return;
-    }
+    setCurrentUser(null);
+    toast.success('Logout realizado com sucesso');
+  };
+
+  const handleForceLogout = () => {
     setCurrentUser(null);
     toast.success('Logout realizado com sucesso');
   };
 
   const navItems = [
-    { id: 'sales', label: 'Vendas', icon: ShoppingCart },
+    { id: 'sales', label: 'Mesas', icon: ShoppingCart },
+    { id: 'sales-view', label: 'Vendas', icon: Receipt },
+    { id: 'delivery', label: 'Entregas', icon: delivery },
     { id: 'products', label: 'Produtos', icon: Package },
     { id: 'reports', label: 'Relatórios', icon: BarChart3 },
     { id: 'shift-history', label: 'Histórico', icon: History },
@@ -78,10 +84,36 @@ const Navigation = ({ currentView, onViewChange }: NavigationProps) => {
               Fechar Turno
             </Button>
           )}
-          <Button onClick={handleLogout} variant="ghost" size="sm">
-            <LogOut className="h-4 w-4 mr-2" />
-            Sair
-          </Button>
+          
+          {currentShift?.isActive ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sair
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Sair sem fechar turno?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Você tem um turno ativo. Deseja sair mesmo assim? O turno continuará ativo.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleForceLogout}>
+                    Sair mesmo assim
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : (
+            <Button onClick={handleLogout} variant="ghost" size="sm">
+              <LogOut className="h-4 w-4 mr-2" />
+              Sair
+            </Button>
+          )}
         </div>
       </div>
     </nav>
