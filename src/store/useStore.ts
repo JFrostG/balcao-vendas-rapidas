@@ -61,66 +61,148 @@ interface AppState {
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
-      // Delegate to individual stores
-      get currentUser() { return useAuthStore.getState().currentUser; },
-      setCurrentUser: (user) => useAuthStore.getState().setCurrentUser(user),
+      // Auth - usando getters reativos
+      get currentUser() { 
+        return useAuthStore.getState().currentUser; 
+      },
+      setCurrentUser: (user) => {
+        useAuthStore.getState().setCurrentUser(user);
+        // Forçar re-render
+        set({});
+      },
       
-      get currentShift() { return useShiftStore.getState().currentShift; },
-      get shifts() { return useShiftStore.getState().shifts; },
-      openShift: (user) => useShiftStore.getState().openShift(user),
-      closeShift: () => useShiftStore.getState().closeShift(),
+      // Shift - usando getters reativos
+      get currentShift() { 
+        return useShiftStore.getState().currentShift; 
+      },
+      get shifts() { 
+        return useShiftStore.getState().shifts; 
+      },
+      openShift: (user) => {
+        useShiftStore.getState().openShift(user);
+        set({});
+      },
+      closeShift: () => {
+        useShiftStore.getState().closeShift();
+        set({});
+      },
       
-      get products() { return useProductStore.getState().products; },
-      addProduct: (product) => useProductStore.getState().addProduct(product),
-      updateProduct: (id, product) => useProductStore.getState().updateProduct(id, product),
-      deleteProduct: (id) => useProductStore.getState().deleteProduct(id),
+      // Products - usando getters reativos
+      get products() { 
+        return useProductStore.getState().products; 
+      },
+      addProduct: (product) => {
+        useProductStore.getState().addProduct(product);
+        set({});
+      },
+      updateProduct: (id, product) => {
+        useProductStore.getState().updateProduct(id, product);
+        set({});
+      },
+      deleteProduct: (id) => {
+        useProductStore.getState().deleteProduct(id);
+        set({});
+      },
       
-      get sales() { return useSalesStore.getState().sales; },
-      get cart() { return useSalesStore.getState().cart; },
+      // Sales - usando getters reativos
+      get sales() { 
+        return useSalesStore.getState().sales; 
+      },
+      get cart() { 
+        return useSalesStore.getState().cart; 
+      },
       addToCart: (product, quantity) => {
         const { currentShift } = get();
         if (!currentShift?.isActive) return;
         useSalesStore.getState().addToCart(product, quantity);
+        set({});
       },
-      removeFromCart: (productId) => useSalesStore.getState().removeFromCart(productId),
-      updateCartQuantity: (productId, quantity) => useSalesStore.getState().updateCartQuantity(productId, quantity),
-      clearCart: () => useSalesStore.getState().clearCart(),
+      removeFromCart: (productId) => {
+        useSalesStore.getState().removeFromCart(productId);
+        set({});
+      },
+      updateCartQuantity: (productId, quantity) => {
+        useSalesStore.getState().updateCartQuantity(productId, quantity);
+        set({});
+      },
+      clearCart: () => {
+        useSalesStore.getState().clearCart();
+        set({});
+      },
       completeSale: (paymentMethod, discount, discountType) => {
         const { currentShift, currentUser } = get();
         if (!currentShift || !currentUser) return;
         useSalesStore.getState().completeSale(paymentMethod, discount, discountType);
+        set({});
       },
-      deleteSale: (saleId) => useSalesStore.getState().deleteSale(saleId),
-      updateSalePaymentMethod: (saleId, paymentMethod) => useSalesStore.getState().updateSalePaymentMethod(saleId, paymentMethod),
+      deleteSale: (saleId) => {
+        useSalesStore.getState().deleteSale(saleId);
+        set({});
+      },
+      updateSalePaymentMethod: (saleId, paymentMethod) => {
+        useSalesStore.getState().updateSalePaymentMethod(saleId, paymentMethod);
+        set({});
+      },
       
-      get tables() { return useTableStore.getState().tables; },
+      // Tables - usando getters reativos
+      get tables() { 
+        return useTableStore.getState().tables; 
+      },
       addToTable: (tableNumber, product, quantity) => {
         const { currentShift } = get();
         if (!currentShift?.isActive) return;
         useTableStore.getState().addToTable(tableNumber, product, quantity);
+        set({});
       },
-      removeFromTable: (tableNumber, productId) => useTableStore.getState().removeFromTable(tableNumber, productId),
-      updateTableQuantity: (tableNumber, productId, quantity) => useTableStore.getState().updateTableQuantity(tableNumber, productId, quantity),
-      updateTableStatus: (tableNumber, status) => useTableStore.getState().updateTableStatus(tableNumber, status),
-      clearTable: (tableNumber) => useTableStore.getState().clearTable(tableNumber),
+      removeFromTable: (tableNumber, productId) => {
+        useTableStore.getState().removeFromTable(tableNumber, productId);
+        set({});
+      },
+      updateTableQuantity: (tableNumber, productId, quantity) => {
+        useTableStore.getState().updateTableQuantity(tableNumber, productId, quantity);
+        set({});
+      },
+      updateTableStatus: (tableNumber, status) => {
+        useTableStore.getState().updateTableStatus(tableNumber, status);
+        set({});
+      },
+      clearTable: (tableNumber) => {
+        useTableStore.getState().clearTable(tableNumber);
+        set({});
+      },
       completeTableSale: (tableNumber, paymentMethod, discount, discountType) => {
-        // Implementation with proper store access
-        console.log('Complete table sale', { tableNumber, paymentMethod, discount, discountType });
+        useTableStore.getState().completeTableSale(tableNumber, paymentMethod, discount, discountType);
+        set({});
       },
       completeTableSaleWithSplit: (tableNumber, payments, discount, discountType) => {
-        // Implementation with proper store access
-        console.log('Complete table sale with split', { tableNumber, payments, discount, discountType });
+        useTableStore.getState().completeTableSaleWithSplit(tableNumber, payments, discount, discountType);
+        set({});
       },
       
-      get users() { return useAuthStore.getState().users; },
-      addUser: (user) => useAuthStore.getState().addUser(user),
-      updateUser: (id, user) => useAuthStore.getState().updateUser(id, user),
-      deleteUser: (id) => useAuthStore.getState().deleteUser(id),
+      // Users - usando getters reativos
+      get users() { 
+        return useAuthStore.getState().users; 
+      },
+      addUser: (user) => {
+        useAuthStore.getState().addUser(user);
+        set({});
+      },
+      updateUser: (id, user) => {
+        useAuthStore.getState().updateUser(id, user);
+        set({});
+      },
+      deleteUser: (id) => {
+        useAuthStore.getState().deleteUser(id);
+        set({});
+      },
       
       // Utils
-      getCartTotal: () => useSalesStore.getState().getCartTotal(),
+      getCartTotal: () => {
+        return useSalesStore.getState().getCartTotal();
+      },
       getCurrentShiftSales: () => {
-        const { sales, currentShift } = get();
+        const sales = useSalesStore.getState().sales;
+        const currentShift = useShiftStore.getState().currentShift;
         if (!currentShift) return [];
         return sales.filter(sale => sale.shiftId === currentShift.id);
       },
@@ -140,11 +222,7 @@ export const useStore = create<AppState>()(
     {
       name: 'burger-pdv-storage',
       partialize: (state) => ({
-        shifts: state.shifts,
-        products: state.products,
-        sales: state.sales,
-        tables: state.tables,
-        users: state.users,
+        // Não persistir dados que vêm dos stores individuais
       }),
     }
   )
