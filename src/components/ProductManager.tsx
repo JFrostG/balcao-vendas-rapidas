@@ -18,6 +18,7 @@ const ProductManager = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState({
     name: '',
+    code: '',
     price: '',
     category: 'hamburguer' as ProductCategory,
     available: true,
@@ -35,6 +36,7 @@ const ProductManager = () => {
   const resetForm = () => {
     setFormData({
       name: '',
+      code: '',
       price: '',
       category: 'hamburguer',
       available: true,
@@ -46,8 +48,15 @@ const ProductManager = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.price) {
-      toast.error('Nome e preço são obrigatórios');
+    if (!formData.name || !formData.price || !formData.code) {
+      toast.error('Nome, código e preço são obrigatórios');
+      return;
+    }
+
+    // Verificar se o código já existe (apenas ao adicionar ou se mudou)
+    const existingProduct = products.find(p => p.code === formData.code && p.id !== editingProduct?.id);
+    if (existingProduct) {
+      toast.error('Já existe um produto com este código');
       return;
     }
 
@@ -60,6 +69,7 @@ const ProductManager = () => {
     if (editingProduct) {
       updateProduct(editingProduct.id, {
         name: formData.name,
+        code: formData.code,
         price,
         category: formData.category,
         available: formData.available,
@@ -69,6 +79,7 @@ const ProductManager = () => {
     } else {
       addProduct({
         name: formData.name,
+        code: formData.code,
         price,
         category: formData.category,
         available: formData.available,
@@ -85,6 +96,7 @@ const ProductManager = () => {
     setEditingProduct(product);
     setFormData({
       name: product.name,
+      code: product.code,
       price: product.price.toString(),
       category: product.category,
       available: product.available,
@@ -143,6 +155,17 @@ const ProductManager = () => {
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Ex: Big Burger"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="code">Código do Produto</Label>
+                <Input
+                  id="code"
+                  value={formData.code}
+                  onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
+                  placeholder="Ex: 001"
                   required
                 />
               </div>
@@ -228,8 +251,8 @@ const ProductManager = () => {
                   <span className="text-2xl">{getCategoryIcon(product.category)}</span>
                   <div>
                     <CardTitle className="text-lg">{product.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground capitalize">
-                      {categories.find(c => c.value === product.category)?.label}
+                    <p className="text-sm text-muted-foreground">
+                      Código: {product.code} • {categories.find(c => c.value === product.category)?.label}
                     </p>
                   </div>
                 </div>
@@ -290,6 +313,30 @@ const ProductManager = () => {
       )}
     </div>
   );
+};
+
+const handleDelete = (id: string) => {
+  if (confirm('Tem certeza que deseja excluir este produto?')) {
+    const { deleteProduct } = useStore.getState();
+    deleteProduct(id);
+    toast.success('Produto excluído com sucesso!');
+  }
+};
+
+const toggleAvailability = (id: string, available: boolean) => {
+  const { updateProduct } = useStore.getState();
+  updateProduct(id, { available });
+  toast.success(`Produto ${available ? 'disponibilizado' : 'indisponibilizado'} com sucesso!`);
+};
+
+const getCategoryIcon = (category: ProductCategory) => {
+  switch (category) {
+    case 'hamburguer': return '🍔';
+    case 'bebida': return '🥤';
+    case 'acompanhamento': return '🍟';
+    case 'sobremesa': return '🍰';
+    default: return '📦';
+  }
 };
 
 export default ProductManager;
