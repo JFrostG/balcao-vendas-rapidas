@@ -10,17 +10,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useStore } from '../store/useStore';
 import { User } from '../types';
-import { Plus, Edit, Trash2, User as UserIcon, Shield, Users } from 'lucide-react';
+import { Plus, Edit, Trash2, User as UserIcon, Shield, Users, Key } from 'lucide-react';
 import { toast } from 'sonner';
 
 const UserManager = () => {
   const { users, addUser, updateUser, deleteUser, currentUser } = useStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [passwordUser, setPasswordUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
     username: '',
     name: '',
-    role: 'cashier' as 'admin' | 'cashier'
+    role: 'cashier' as 'admin' | 'cashier',
+    password: '',
+    confirmPassword: ''
+  });
+  const [passwordData, setPasswordData] = useState({
+    password: '',
+    confirmPassword: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -28,6 +36,21 @@ const UserManager = () => {
     
     if (!formData.username || !formData.name) {
       toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    if (!editingUser && !formData.password) {
+      toast.error('Senha é obrigatória para novos usuários');
+      return;
+    }
+
+    if (formData.password && formData.password !== formData.confirmPassword) {
+      toast.error('Senhas não coincidem');
+      return;
+    }
+
+    if (formData.password && formData.password.length < 4) {
+      toast.error('Senha deve ter pelo menos 4 caracteres');
       return;
     }
 
@@ -41,17 +64,51 @@ const UserManager = () => {
       return;
     }
 
+    const userData = {
+      username: formData.username,
+      name: formData.name,
+      role: formData.role,
+      ...(formData.password && { password: formData.password })
+    };
+
     if (editingUser) {
-      updateUser(editingUser.id, formData);
+      updateUser(editingUser.id, userData);
       toast.success('Usuário atualizado com sucesso');
     } else {
-      addUser(formData);
+      addUser(userData);
       toast.success('Usuário criado com sucesso');
     }
 
     setIsDialogOpen(false);
     setEditingUser(null);
-    setFormData({ username: '', name: '', role: 'cashier' });
+    setFormData({ username: '', name: '', role: 'cashier', password: '', confirmPassword: '' });
+  };
+
+  const handlePasswordChange = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!passwordData.password) {
+      toast.error('Digite a nova senha');
+      return;
+    }
+
+    if (passwordData.password !== passwordData.confirmPassword) {
+      toast.error('Senhas não coincidem');
+      return;
+    }
+
+    if (passwordData.password.length < 4) {
+      toast.error('Senha deve ter pelo menos 4 caracteres');
+      return;
+    }
+
+    if (passwordUser) {
+      updateUser(passwordUser.id, { password: passwordData.password });
+      toast.success('Senha alterada com sucesso');
+      setIsPasswordDialogOpen(false);
+      setPasswordUser(null);
+      setPasswordData({ password: '', confirmPassword: '' });
+    }
   };
 
   const handleEdit = (user: User) => {
@@ -59,9 +116,17 @@ const UserManager = () => {
     setFormData({
       username: user.username,
       name: user.name,
-      role: user.role
+      role: user.role,
+      password: '',
+      confirmPassword: ''
     });
     setIsDialogOpen(true);
+  };
+
+  const handleChangePassword = (user: User) => {
+    setPasswordUser(user);
+    setPasswordData({ password: '', confirmPassword: '' });
+    setIsPasswordDialogOpen(true);
   };
 
   const handleDelete = (userId: string) => {
@@ -77,7 +142,13 @@ const UserManager = () => {
   const handleDialogClose = () => {
     setIsDialogOpen(false);
     setEditingUser(null);
-    setFormData({ username: '', name: '', role: 'cashier' });
+    setFormData({ username: '', name: '', role: 'cashier', password: '', confirmPassword: '' });
+  };
+
+  const handlePasswordDialogClose = () => {
+    setIsPasswordDialogOpen(false);
+    setPasswordUser(null);
+    setPasswordData({ password: '', confirmPassword: '' });
   };
 
   const getRoleIcon = (role: string) => {
@@ -152,6 +223,30 @@ const UserManager = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="password">
+                    {editingUser ? 'Nova senha (deixe em branco para manter)' : 'Senha'}
+                  </Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="Digite a senha"
+                    required={!editingUser}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="confirmPassword">Confirmar senha</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    placeholder="Confirme a senha"
+                    required={!editingUser || !!formData.password}
+                  />
+                </div>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={handleDialogClose}>
@@ -159,6 +254,52 @@ const UserManager = () => {
                 </Button>
                 <Button type="submit">
                   {editingUser ? 'Atualizar' : 'Criar'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog para alterar senha */}
+        <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Alterar Senha</DialogTitle>
+              <DialogDescription>
+                Altere a senha do usuário "{passwordUser?.name}".
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handlePasswordChange}>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="newPassword">Nova senha</Label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    value={passwordData.password}
+                    onChange={(e) => setPasswordData({ ...passwordData, password: e.target.value })}
+                    placeholder="Digite a nova senha"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="confirmNewPassword">Confirmar nova senha</Label>
+                  <Input
+                    id="confirmNewPassword"
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                    placeholder="Confirme a nova senha"
+                    required
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={handlePasswordDialogClose}>
+                  Cancelar
+                </Button>
+                <Button type="submit">
+                  Alterar Senha
                 </Button>
               </DialogFooter>
             </form>
@@ -252,6 +393,14 @@ const UserManager = () => {
                         onClick={() => handleEdit(user)}
                       >
                         <Edit className="h-4 w-4" />
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleChangePassword(user)}
+                      >
+                        <Key className="h-4 w-4" />
                       </Button>
                       
                       {currentUser?.id !== user.id && (
