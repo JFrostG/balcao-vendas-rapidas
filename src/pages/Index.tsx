@@ -10,6 +10,7 @@ import Reports from '../components/Reports';
 import ShiftHistory from '../components/ShiftHistory';
 import SalesView from '../components/SalesView';
 import DeliveryView from '../components/DeliveryView';
+import UserManager from '../components/UserManager';
 
 const Index = () => {
   const { currentUser, currentShift } = useStore();
@@ -36,6 +37,8 @@ const Index = () => {
         return <ProductManager />;
       case 'reports':
         return <Reports />;
+      case 'users':
+        return <UserManager />;
       case 'shift-history':
         return <ShiftHistory />;
       case 'shift':

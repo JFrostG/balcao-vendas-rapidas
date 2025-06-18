@@ -1,14 +1,16 @@
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useStore } from '../store/useStore';
-import { Clock, DollarSign, ShoppingBag, LogOut } from 'lucide-react';
+import { Clock, DollarSign, ShoppingBag, LogOut, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ShiftManager = () => {
   const { 
     currentUser, 
     currentShift, 
+    shifts,
     openShift, 
     closeShift, 
     getCurrentShiftSales,
@@ -16,8 +18,17 @@ const ShiftManager = () => {
     setCurrentUser 
   } = useStore();
 
+  // Verificar se há outro turno ativo
+  const activeShifts = shifts.filter(shift => shift.isActive && shift.id !== currentShift?.id);
+  const hasOtherActiveShift = activeShifts.length > 0;
+
   const handleOpenShift = () => {
     if (!currentUser) return;
+    
+    if (hasOtherActiveShift) {
+      toast.warning('Existe outro turno ativo. Ele será fechado automaticamente.');
+    }
+    
     openShift(currentUser);
     toast.success('Turno aberto com sucesso!');
   };
@@ -48,15 +59,37 @@ const ShiftManager = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {hasOtherActiveShift && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 text-yellow-800">
+                  <AlertTriangle className="w-5 h-5" />
+                  <span className="font-medium">Atenção!</span>
+                </div>
+                <p className="text-sm text-yellow-700 mt-1">
+                  Existe {activeShifts.length} turno(s) ativo(s) de outro(s) usuário(s). 
+                  Ao abrir seu turno, o(s) turno(s) ativo(s) será(ão) fechado(s) automaticamente.
+                </p>
+                <div className="mt-2 text-xs text-yellow-600">
+                  {activeShifts.map(shift => (
+                    <div key={shift.id}>
+                      • {shift.userName} - {new Date(shift.startTime).toLocaleString('pt-BR')}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <div className="text-center space-y-2">
               <Clock className="w-12 h-12 mx-auto text-primary" />
               <p className="text-sm text-muted-foreground">
                 {new Date().toLocaleString('pt-BR')}
               </p>
             </div>
+            
             <Button onClick={handleOpenShift} className="w-full" size="lg">
-              Abrir Turno
+              {hasOtherActiveShift ? 'Fechar Outros Turnos e Abrir Meu Turno' : 'Abrir Turno'}
             </Button>
+            
             <Button 
               onClick={handleLogout} 
               variant="outline" 
@@ -86,11 +119,39 @@ const ShiftManager = () => {
           <p className="text-muted-foreground">
             Iniciado em {currentShift.startTime.toLocaleString('pt-BR')}
           </p>
+          {hasOtherActiveShift && (
+            <p className="text-sm text-yellow-600 mt-1">
+              ⚠️ Atenção: Existem outros turnos ativos no sistema
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleCloseShift} variant="destructive">
-            Fechar Turno
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">
+                Fechar Turno
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Fechar turno?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tem certeza que deseja fechar o turno? Esta ação encerrará suas atividades de vendas.
+                  <br /><br />
+                  <strong>Resumo do turno:</strong>
+                  <br />• Total vendido: R$ {totalSales.toFixed(2)}
+                  <br />• Vendas realizadas: {shiftSales.length}
+                  <br />• Itens vendidos: {totalItems}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleCloseShift}>
+                  Fechar Turno
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -103,7 +164,9 @@ const ShiftManager = () => {
               <AlertDialogHeader>
                 <AlertDialogTitle>Sair sem fechar turno?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Você tem um turno ativo. Deseja sair mesmo assim? O turno continuará ativo.
+                  Você tem um turno ativo. Deseja sair mesmo assim? O turno continuará ativo e você poderá retornar mais tarde.
+                  <br /><br />
+                  <strong>Importante:</strong> Outros usuários não poderão abrir novos turnos enquanto este estiver ativo.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
