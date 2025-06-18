@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,17 +63,31 @@ const UserManager = () => {
       return;
     }
 
-    const userData = {
-      username: formData.username,
-      name: formData.name,
-      role: formData.role,
-      ...(formData.password && { password: formData.password })
-    };
-
     if (editingUser) {
-      updateUser(editingUser.id, userData);
+      // Para edição, separamos os dados do usuário da senha
+      const userData = {
+        username: formData.username,
+        name: formData.name,
+        role: formData.role,
+      };
+      
+      // Se há nova senha, atualizamos ela separadamente
+      if (formData.password) {
+        updateUser(editingUser.id, { ...userData, password: formData.password });
+      } else {
+        updateUser(editingUser.id, userData);
+      }
+      
       toast.success('Usuário atualizado com sucesso');
     } else {
+      // Para novo usuário, incluímos a senha
+      const userData = {
+        username: formData.username,
+        name: formData.name,
+        role: formData.role,
+        password: formData.password
+      };
+      
       addUser(userData);
       toast.success('Usuário criado com sucesso');
     }
