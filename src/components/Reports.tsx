@@ -1,8 +1,8 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useSalesStore } from '../store/salesStore';
 import { useStore } from '../store/useStore';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { CalendarDays, DollarSign, ShoppingBag, TrendingUp } from 'lucide-react';
@@ -10,7 +10,8 @@ import { format, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const Reports = () => {
-  const { sales, shifts, getCurrentShiftSales, getPaymentBreakdown } = useStore();
+  const { sales } = useSalesStore();
+  const { currentShift } = useStore();
   const [reportType, setReportType] = useState('current-shift');
 
   // Helper function to get sales for a specific date
@@ -23,6 +24,11 @@ const Reports = () => {
   };
 
   // Current shift data
+  const getCurrentShiftSales = () => {
+    if (!currentShift) return [];
+    return sales.filter(sale => sale.shiftId === currentShift.id);
+  };
+
   const currentShiftSales = getCurrentShiftSales();
   const currentShiftTotal = currentShiftSales.reduce((sum, sale) => sum + sale.total, 0);
   const currentShiftItems = currentShiftSales.reduce((sum, sale) => 
@@ -55,6 +61,20 @@ const Reports = () => {
   const reportItems = reportSales.reduce((sum, sale) => 
     sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0
   );
+
+  const getPaymentBreakdown = (salesData: any[]) => {
+    return salesData.reduce((breakdown, sale) => {
+      breakdown[sale.paymentMethod] += sale.total;
+      return breakdown;
+    }, {
+      dinheiro: 0,
+      debito: 0,
+      credito: 0,
+      pix: 0,
+      cortesia: 0,
+    });
+  };
+
   const paymentBreakdown = getPaymentBreakdown(reportSales);
 
   // Top products data
@@ -116,6 +136,10 @@ const Reports = () => {
         return 'Relatório';
     }
   };
+
+  console.log('Reports - Total sales:', sales.length);
+  console.log('Reports - Current shift sales:', currentShiftSales.length);
+  console.log('Reports - Report sales:', reportSales.length);
 
   return (
     <div className="p-6 space-y-6">

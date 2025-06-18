@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import { useSalesStore } from '../store/salesStore';
 import { useStore } from '../store/useStore';
 import { PaymentMethod, ProductCategory } from '../types';
 import { toast } from 'sonner';
@@ -12,16 +13,19 @@ import ShiftWarning from './ShiftWarning';
 const SalesInterface = () => {
   const {
     products,
+    currentShift,
+    currentUser
+  } = useStore();
+
+  const {
     cart,
     addToCart,
     removeFromCart,
     updateCartQuantity,
     clearCart,
     completeSale,
-    getCartTotal,
-    currentShift,
-    currentUser
-  } = useStore();
+    getCartTotal
+  } = useSalesStore();
 
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'all'>('all');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('dinheiro');
@@ -60,7 +64,7 @@ const SalesInterface = () => {
     }
 
     const finalPaymentMethod = selectedPaymentMethod || paymentMethod;
-    completeSale(finalPaymentMethod, 0, 'value'); // Sem desconto
+    completeSale(finalPaymentMethod, 0, 'value', 0); // Balcão
     setPaymentMethod('dinheiro');
     toast.success('Venda realizada com sucesso!');
     console.log('Venda finalizada com sucesso');

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { useSalesStore } from '../store/salesStore';
 import { useStore } from '../store/useStore';
 import { PaymentMethod } from '../types';
 import { Trash, Edit, Printer } from 'lucide-react';
@@ -11,7 +11,8 @@ import SplitClosedSaleDialog from './SplitClosedSaleDialog';
 import QuickPaymentButtons from './QuickPaymentButtons';
 
 const SalesView = () => {
-  const { sales, deleteSale, updateSalePaymentMethod, currentShift } = useStore();
+  const { sales, deleteSale, updateSalePaymentMethod } = useSalesStore();
+  const { currentShift } = useStore();
   const [editingSale, setEditingSale] = useState<string | null>(null);
   const [newPaymentMethod, setNewPaymentMethod] = useState<PaymentMethod>('dinheiro');
   const [splitSale, setSplitSale] = useState<any>(null);
@@ -57,6 +58,9 @@ const SalesView = () => {
 
   const totalSales = currentShiftSales.reduce((sum, sale) => sum + sale.total, 0);
 
+  console.log('Vendas carregadas:', sales.length);
+  console.log('Vendas do turno atual:', currentShiftSales.length);
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -76,6 +80,9 @@ const SalesView = () => {
         <Card>
           <CardContent className="p-8 text-center">
             <p className="text-muted-foreground">Nenhuma venda registrada no turno atual</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Total de vendas no sistema: {sales.length}
+            </p>
           </CardContent>
         </Card>
       ) : (
