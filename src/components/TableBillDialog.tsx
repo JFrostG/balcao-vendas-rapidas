@@ -1,16 +1,14 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useStore } from '../store/useStore';
 import { PaymentMethod } from '../types';
 import { CreditCard, Printer, Split } from 'lucide-react';
 import { toast } from 'sonner';
 import SplitPaymentDialog from './SplitPaymentDialog';
+import QuickPaymentButtons from './QuickPaymentButtons';
 
 interface TableBillDialogProps {
   tableNumber: number;
@@ -20,9 +18,6 @@ interface TableBillDialogProps {
 
 const TableBillDialog = ({ tableNumber, onClose, onPayment }: TableBillDialogProps) => {
   const { tables, completeTableSale, completeTableSaleWithSplit } = useStore();
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('dinheiro');
-  const [discount, setDiscount] = useState(0);
-  const [discountType, setDiscountType] = useState<'value' | 'percentage'>('value');
   const [showSplitDialog, setShowSplitDialog] = useState(false);
   
   const table = tables.find(t => t.id === tableNumber);
@@ -30,8 +25,43 @@ const TableBillDialog = ({ tableNumber, onClose, onPayment }: TableBillDialogPro
   if (!table) return null;
 
   const cartTotal = table.total;
-  const discountAmount = discountType === 'percentage' ? (cartTotal * discount) / 100 : discount;
-  const finalTotal = Math.max(0, cartTotal - discountAmount);
+  const finalTotal = cartTotal; // Sem desconto
+
+  // Suporte a teclado
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (showSplitDialog) return; // Não processar se split dialog estiver aberto
+      
+      // Teclas numéricas para pagamento
+      const keyMap: {[key: string]: PaymentMethod} = {
+        '1': 'dinheiro',
+        '2': 'debito', 
+        '3': 'credito',
+        '4': 'pix',
+        '5': 'cortesia'
+      };
+      
+      if (keyMap[e.key]) {
+        e.preventDefault();
+        handleSimplePayment(keyMap[e.key]);
+      }
+      
+      // Enter para dividir conta
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        setShowSplitDialog(true);
+      }
+      
+      // Escape para fechar
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showSplitDialog]);
 
   const handlePrintBill = () => {
     const billContent = `
@@ -45,8 +75,7 @@ ${table.orders.map(item =>
 ).join('\n\n')}
 
 --------------------------------
-Subtotal: R$ ${cartTotal.toFixed(2)}
-${discount > 0 ? `Desconto: R$ ${discountAmount.toFixed(2)}\n` : ''}Total: R$ ${finalTotal.toFixed(2)}
+Total: R$ ${finalTotal.toFixed(2)}
 ================================
     `;
     
@@ -54,14 +83,15 @@ ${discount > 0 ? `Desconto: R$ ${discountAmount.toFixed(2)}\n` : ''}Total: R$ ${
     toast.success('Conta impressa com sucesso!');
   };
 
-  const handleSimplePayment = () => {
+  const handleSimplePayment = (paymentMethod: PaymentMethod) => {
     if (!table.orders.length) {
       toast.error('Mesa sem pedidos');
       return;
     }
 
-    completeTableSale(tableNumber, paymentMethod, discount, discountType);
+    completeTableSale(tableNumber, paymentMethod, 0, 'value'); // Sem desconto
     onPayment(tableNumber);
+    toast.success(`Pagamento ${paymentMethod} realizado - Mesa ${tableNumber} liberada`);
   };
 
   const handleSplitPayment = (payments: Array<{method: PaymentMethod, amount: number}>, shouldPrint: boolean) => {
@@ -74,7 +104,7 @@ ${discount > 0 ? `Desconto: R$ ${discountAmount.toFixed(2)}\n` : ''}Total: R$ ${
       handlePrintBill();
     }
 
-    completeTableSaleWithSplit(tableNumber, payments, discount, discountType);
+    completeTableSaleWithSplit(tableNumber, payments, 0, 'value'); // Sem desconto
     setShowSplitDialog(false);
     onPayment(tableNumber);
     toast.success(`Pagamento dividido realizado - Mesa ${tableNumber} liberada`);
@@ -107,68 +137,21 @@ ${discount > 0 ? `Desconto: R$ ${discountAmount.toFixed(2)}\n` : ''}Total: R$ ${
               </CardContent>
             </Card>
 
-            {/* Discount */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2">
-                <Label className="text-green-800 font-medium">Desconto</Label>
-                <Input
-                  type="number"
-                  value={discount}
-                  onChange={(e) => setDiscount(Number(e.target.value))}
-                  min="0"
-                  step="0.01"
-                  className="border-green-300 focus:border-green-500 focus:ring-green-500"
-                />
-              </div>
-              <div>
-                <Label className="text-green-800 font-medium">Tipo</Label>
-                <Select value={discountType} onValueChange={(value) => setDiscountType(value as 'value' | 'percentage')}>
-                  <SelectTrigger className="border-green-300 focus:border-green-500">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="value">R$</SelectItem>
-                    <SelectItem value="percentage">%</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
             {/* Total Summary */}
             <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal:</span>
-                  <span>R$ {cartTotal.toFixed(2)}</span>
-                </div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-sm text-red-600">
-                    <span>Desconto:</span>
-                    <span>- R$ {discountAmount.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-bold text-xl border-t border-green-200 pt-2">
-                  <span className="text-green-800">Total:</span>
-                  <span className="text-green-600">R$ {finalTotal.toFixed(2)}</span>
-                </div>
+              <div className="flex justify-between font-bold text-2xl">
+                <span className="text-green-800">Total:</span>
+                <span className="text-green-600">R$ {finalTotal.toFixed(2)}</span>
               </div>
             </div>
 
-            {/* Payment Method for Simple Payment */}
+            {/* Payment Buttons */}
             <div>
-              <Label className="text-green-800 font-medium">Pagamento Simples</Label>
-              <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}>
-                <SelectTrigger className="border-green-300 focus:border-green-500">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                  <SelectItem value="debito">Cartão Débito</SelectItem>
-                  <SelectItem value="credito">Cartão Crédito</SelectItem>
-                  <SelectItem value="pix">PIX</SelectItem>
-                  <SelectItem value="cortesia">Cortesia</SelectItem>
-                </SelectContent>
-              </Select>
+              <h3 className="text-green-800 font-medium mb-3">Pagamento Individual</h3>
+              <QuickPaymentButtons 
+                onPaymentSelect={handleSimplePayment}
+                className="mb-4"
+              />
             </div>
 
             {/* Action Buttons */}
@@ -182,30 +165,21 @@ ${discount > 0 ? `Desconto: R$ ${discountAmount.toFixed(2)}\n` : ''}Total: R$ ${
                 Imprimir Conta
               </Button>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Button 
-                  onClick={handleSimplePayment} 
-                  className="bg-green-600 hover:bg-green-700 text-white h-12"
-                >
-                  <CreditCard className="w-5 h-5 mr-2" />
-                  Pagar Simples
-                </Button>
-                <Button 
-                  onClick={() => setShowSplitDialog(true)} 
-                  variant="outline" 
-                  className="border-green-300 text-green-700 hover:bg-green-50 h-12"
-                >
-                  <Split className="w-5 h-5 mr-2" />
-                  Dividir Conta
-                </Button>
-              </div>
+              <Button 
+                onClick={() => setShowSplitDialog(true)} 
+                variant="outline" 
+                className="w-full border-green-300 text-green-700 hover:bg-green-50 h-12"
+              >
+                <Split className="w-5 h-5 mr-2" />
+                Dividir Conta [Enter]
+              </Button>
               
               <Button 
                 onClick={onClose} 
                 variant="outline" 
                 className="w-full border-gray-300 text-gray-600 hover:bg-gray-50 h-12"
               >
-                Cancelar
+                Cancelar [Esc]
               </Button>
             </div>
           </div>

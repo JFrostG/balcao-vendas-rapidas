@@ -9,7 +9,7 @@ interface SalesState {
   removeFromCart: (productId: string) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
-  completeSale: (paymentMethod: PaymentMethod, discount: number, discountType: 'value' | 'percentage') => void;
+  completeSale: (paymentMethod: PaymentMethod, discount?: number, discountType?: 'value' | 'percentage') => void;
   deleteSale: (saleId: string) => void;
   updateSalePaymentMethod: (saleId: string, paymentMethod: PaymentMethod) => void;
   getCartTotal: () => number;
@@ -60,7 +60,7 @@ export const useSalesStore = create<SalesState>((set, get) => ({
     }));
   },
   clearCart: () => set({ cart: [] }),
-  completeSale: (paymentMethod, discount, discountType) => {
+  completeSale: (paymentMethod, discount = 0, discountType = 'value') => {
     const { cart } = get();
     if (cart.length === 0) return;
     
@@ -94,6 +94,8 @@ export const useSalesStore = create<SalesState>((set, get) => ({
       sales: [...state.sales, newSale],
       cart: [],
     }));
+    
+    console.log('Venda registrada:', newSale);
   },
   deleteSale: (saleId) => {
     set((state) => ({

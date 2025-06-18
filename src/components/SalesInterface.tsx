@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { PaymentMethod, ProductCategory } from '../types';
 import { toast } from 'sonner';
@@ -25,8 +25,6 @@ const SalesInterface = () => {
 
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'all'>('all');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('dinheiro');
-  const [discount, setDiscount] = useState(0);
-  const [discountType, setDiscountType] = useState<'value' | 'percentage'>('value');
   const [showProductCode, setShowProductCode] = useState(false);
 
   // Se não houver turno ativo, mostrar aviso
@@ -40,35 +38,17 @@ const SalesInterface = () => {
       return;
     }
     addToCart(product, quantity);
+    console.log('Produto adicionado ao carrinho:', product, 'Quantidade:', quantity);
   };
 
   const handlePaymentSelect = (method: PaymentMethod) => {
     setPaymentMethod(method);
     if (cart.length > 0) {
-      handleCompleteSale();
+      handleCompleteSale(method);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && cart.length > 0) {
-      handleCompleteSale();
-    }
-    
-    // Atalhos numéricos para formas de pagamento
-    const keyMap: {[key: string]: PaymentMethod} = {
-      '1': 'dinheiro',
-      '2': 'debito', 
-      '3': 'credito',
-      '4': 'pix',
-      '5': 'cortesia'
-    };
-    
-    if (keyMap[e.key]) {
-      handlePaymentSelect(keyMap[e.key]);
-    }
-  };
-
-  const handleCompleteSale = () => {
+  const handleCompleteSale = (selectedPaymentMethod?: PaymentMethod) => {
     if (cart.length === 0) {
       toast.error('Carrinho vazio');
       return;
@@ -79,16 +59,48 @@ const SalesInterface = () => {
       return;
     }
 
-    completeSale(paymentMethod, discount, discountType);
-    setDiscount(0);
+    const finalPaymentMethod = selectedPaymentMethod || paymentMethod;
+    completeSale(finalPaymentMethod, 0, 'value'); // Sem desconto
     setPaymentMethod('dinheiro');
     toast.success('Venda realizada com sucesso!');
+    console.log('Venda finalizada com sucesso');
   };
+
+  // Suporte a teclado
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target && (e.target as HTMLElement).tagName === 'INPUT') {
+        return; // Não processar se estiver digitando em um input
+      }
+      
+      if (e.key === 'Enter' && cart.length > 0) {
+        e.preventDefault();
+        handleCompleteSale();
+      }
+      
+      // Atalhos numéricos para formas de pagamento
+      const keyMap: {[key: string]: PaymentMethod} = {
+        '1': 'dinheiro',
+        '2': 'debito', 
+        '3': 'credito',
+        '4': 'pix',
+        '5': 'cortesia'
+      };
+      
+      if (keyMap[e.key]) {
+        e.preventDefault();
+        handlePaymentSelect(keyMap[e.key]);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [cart.length, paymentMethod]);
 
   const cartTotal = getCartTotal();
 
   return (
-    <div className="h-full flex" onKeyDown={handleKeyDown} tabIndex={0}>
+    <div className="h-full flex">
       {/* Products Grid */}
       <div className="flex-1 p-4 overflow-y-auto">
         <CategoryFilter 
@@ -106,17 +118,17 @@ const SalesInterface = () => {
       {/* Cart Sidebar */}
       <CartSidebar
         cart={cart}
-        discount={discount}
-        discountType={discountType}
+        discount={0}
+        discountType="value"
         cartTotal={cartTotal}
         onQuantityUpdate={updateCartQuantity}
         onItemRemove={removeFromCart}
         onCartClear={clearCart}
-        onDiscountChange={setDiscount}
-        onDiscountTypeChange={setDiscountType}
+        onDiscountChange={() => {}} // Não usado mais
+        onDiscountTypeChange={() => {}} // Não usado mais
         onPaymentSelect={handlePaymentSelect}
-        onCompleteSale={handleCompleteSale}
-        onKeyDown={handleKeyDown}
+        onCompleteSale={() => handleCompleteSale()}
+        onKeyDown={() => {}} // Tratado globalmente agora
       />
 
       <ProductCodeInput 

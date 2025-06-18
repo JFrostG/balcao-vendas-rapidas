@@ -64,31 +64,38 @@ const UserManager = () => {
     }
 
     if (editingUser) {
-      // Para edição, separamos os dados do usuário da senha
+      // Para edição, atualizamos apenas os dados básicos
       const userData = {
         username: formData.username,
         name: formData.name,
         role: formData.role,
       };
       
-      // Se há nova senha, atualizamos ela separadamente
+      updateUser(editingUser.id, userData);
+      
+      // Se há nova senha, salvamos separadamente no authStore
       if (formData.password) {
-        updateUser(editingUser.id, { ...userData, password: formData.password });
-      } else {
-        updateUser(editingUser.id, userData);
+        // Aqui chamamos diretamente o authStore para salvar a senha
+        const authStore = require('../store/authStore').useAuthStore.getState();
+        authStore.updateUserPassword(editingUser.id, formData.password);
       }
       
       toast.success('Usuário atualizado com sucesso');
     } else {
-      // Para novo usuário, incluímos a senha
+      // Para novo usuário, criamos sem senha no tipo User
       const userData = {
         username: formData.username,
         name: formData.name,
         role: formData.role,
-        password: formData.password
       };
       
       addUser(userData);
+      
+      // Salvamos a senha separadamente no authStore
+      const authStore = require('../store/authStore').useAuthStore.getState();
+      const newUserId = Date.now().toString(); // Mesmo ID que será usado no addUser
+      authStore.setUserPassword(newUserId, formData.password);
+      
       toast.success('Usuário criado com sucesso');
     }
 
@@ -116,7 +123,10 @@ const UserManager = () => {
     }
 
     if (passwordUser) {
-      updateUser(passwordUser.id, { password: passwordData.password });
+      // Chamamos diretamente o authStore para atualizar a senha
+      const authStore = require('../store/authStore').useAuthStore.getState();
+      authStore.updateUserPassword(passwordUser.id, passwordData.password);
+      
       toast.success('Senha alterada com sucesso');
       setIsPasswordDialogOpen(false);
       setPasswordUser(null);
