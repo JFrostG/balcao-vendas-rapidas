@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Table, TableStatus, Product, PaymentMethod } from '../types';
@@ -12,6 +13,7 @@ interface TableState {
   clearTable: (tableNumber: number) => void;
   completeTableSale: (tableNumber: number, paymentMethod: PaymentMethod, discount?: number, discountType?: 'value' | 'percentage') => void;
   completeTableSaleWithSplit: (tableNumber: number, payments: Array<{method: PaymentMethod, amount: number}>, discount?: number, discountType?: 'value' | 'percentage') => void;
+  completePartialPayment: (tableNumber: number, paymentMethod: PaymentMethod, amount: number) => void;
   getTableTotal: (tableNumber: number) => number;
 }
 
@@ -61,11 +63,7 @@ export const useTableStore = create<TableState>()(
           }),
         }));
 
-        // Registrar imediatamente como venda
-        const salesStore = useSalesStore.getState();
-        salesStore.addToCart(product, quantity);
-        salesStore.completeSale('dinheiro', 0, 'value', tableNumber); // Registrar temporariamente
-        console.log(`Produto adicionado e registrado como venda - ${tableNumber === 0 ? 'Balcão' : `Mesa ${tableNumber}`}:`, product.name);
+        console.log(`Produto adicionado - ${tableNumber === 0 ? 'Balcão' : `Mesa ${tableNumber}`}:`, product.name);
       },
 
       removeFromTable: (tableNumber, productId) => {
@@ -136,10 +134,12 @@ export const useTableStore = create<TableState>()(
         const table = get().tables.find(t => t.id === tableNumber);
         if (!table || table.orders.length === 0) return;
 
-        // Registrar cada item como venda individual
+        // Registrar venda completa no salesStore
         const salesStore = useSalesStore.getState();
+        
+        // Limpar carrinho e adicionar todos os itens da mesa
+        salesStore.clearCart();
         table.orders.forEach(item => {
-          // Simular produto para adicionar ao carrinho
           const product = {
             id: item.productId,
             name: item.productName,
@@ -152,13 +152,14 @@ export const useTableStore = create<TableState>()(
           salesStore.addToCart(product, item.quantity);
         });
 
-        // Completar venda com o método de pagamento escolhido
+        // Completar venda com desconto se houver
         salesStore.completeSale(paymentMethod, discount, discountType, tableNumber);
 
-        console.log(`Venda registrada - ${tableNumber === 0 ? 'Balcão' : `Mesa ${tableNumber}`}:`, {
+        console.log(`Venda completa registrada - ${tableNumber === 0 ? 'Balcão' : `Mesa ${tableNumber}`}:`, {
           total: table.total,
           paymentMethod,
-          items: table.orders.length
+          items: table.orders.length,
+          discount
         });
 
         // Limpar mesa
@@ -171,28 +172,32 @@ export const useTableStore = create<TableState>()(
 
         const salesStore = useSalesStore.getState();
         
-        // Registrar cada pagamento como uma venda separada
+        // Para cada pagamento, registrar uma venda proporcional
+        const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
+        
         payments.forEach(payment => {
           // Calcular proporção dos itens para este pagamento
-          const proportion = payment.amount / table.total;
+          const proportion = payment.amount / totalPaid;
           
+          // Limpar carrinho e adicionar itens proporcionais
+          salesStore.clearCart();
           table.orders.forEach(item => {
-            const proportionalQuantity = Math.ceil(item.quantity * proportion);
-            if (proportionalQuantity > 0) {
-              const product = {
-                id: item.productId,
-                name: item.productName,
-                price: item.price,
-                category: 'outro' as const,
-                available: true,
-                code: item.productId
-              };
-              
-              salesStore.addToCart(product, proportionalQuantity);
-            }
+            const proportionalQuantity = Math.max(1, Math.round(item.quantity * proportion));
+            const product = {
+              id: item.productId,
+              name: item.productName,
+              price: item.price,
+              category: 'outro' as const,
+              available: true,
+              code: item.productId
+            };
+            
+            salesStore.addToCart(product, proportionalQuantity);
           });
 
-          salesStore.completeSale(payment.method, 0, 'value', tableNumber);
+          // Aplicar desconto proporcional se houver
+          const proportionalDiscount = discount * proportion;
+          salesStore.completeSale(payment.method, proportionalDiscount, discountType, tableNumber);
         });
 
         console.log(`Venda dividida registrada - ${tableNumber === 0 ? 'Balcão' : `Mesa ${tableNumber}`}:`, {
@@ -202,6 +207,60 @@ export const useTableStore = create<TableState>()(
 
         // Limpar mesa
         get().clearTable(tableNumber);
+      },
+
+      completePartialPayment: (tableNumber, paymentMethod, amount) => {
+        const table = get().tables.find(t => t.id === tableNumber);
+        if (!table || table.orders.length === 0 || amount <= 0) return;
+
+        const salesStore = useSalesStore.getState();
+        
+        // Calcular proporção do pagamento parcial
+        const proportion = Math.min(1, amount / table.total);
+        
+        // Limpar carrinho e adicionar itens proporcionais
+        salesStore.clearCart();
+        table.orders.forEach(item => {
+          const partialQuantity = Math.max(1, Math.ceil(item.quantity * proportion));
+          const product = {
+            id: item.productId,
+            name: item.productName,
+            price: item.price,
+            category: 'outro' as const,
+            available: true,
+            code: item.productId
+          };
+          
+          salesStore.addToCart(product, partialQuantity);
+        });
+
+        // Registrar venda parcial
+        salesStore.completeSale(paymentMethod, 0, 'value', tableNumber);
+
+        // Atualizar total da mesa subtraindo o valor pago
+        set((state) => ({
+          tables: state.tables.map(tbl => {
+            if (tbl.id === tableNumber) {
+              const newTotal = Math.max(0, tbl.total - amount);
+              const newStatus = newTotal === 0 ? 'available' as TableStatus : tbl.status;
+              const newOrders = newTotal === 0 ? [] : tbl.orders;
+              
+              return {
+                ...tbl,
+                total: newTotal,
+                status: newStatus,
+                orders: newOrders
+              };
+            }
+            return tbl;
+          }),
+        }));
+
+        console.log(`Pagamento parcial registrado - ${tableNumber === 0 ? 'Balcão' : `Mesa ${tableNumber}`}:`, {
+          amount,
+          paymentMethod,
+          remainingTotal: Math.max(0, table.total - amount)
+        });
       },
 
       getTableTotal: (tableNumber) => {

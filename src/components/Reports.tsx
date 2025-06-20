@@ -25,7 +25,7 @@ const Reports = () => {
 
   // Current shift data
   const getCurrentShiftSales = () => {
-    if (!currentShift) return [];
+    if (!currentShift?.isActive) return [];
     return sales.filter(sale => sale.shiftId === currentShift.id);
   };
 
@@ -95,7 +95,7 @@ const Reports = () => {
   }, {} as Record<string, { name: string; quantity: number; revenue: number }>);
 
   const topProducts = Object.values(productSales)
-    .sort((a, b) => b.quantity - b.quantity)
+    .sort((a, b) => b.quantity - a.quantity)
     .slice(0, 5);
 
   // Payment method data for charts
@@ -137,9 +137,10 @@ const Reports = () => {
     }
   };
 
-  console.log('Reports - Total sales:', sales.length);
+  console.log('Reports - Total sales in store:', sales.length);
   console.log('Reports - Current shift sales:', currentShiftSales.length);
   console.log('Reports - Report sales:', reportSales.length);
+  console.log('Reports - Current shift:', currentShift?.id, currentShift?.isActive);
 
   return (
     <div className="p-6 space-y-6">

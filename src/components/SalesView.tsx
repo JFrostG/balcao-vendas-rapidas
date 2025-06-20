@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,8 @@ const SalesView = () => {
   const [newPaymentMethod, setNewPaymentMethod] = useState<PaymentMethod>('dinheiro');
   const [splitSale, setSplitSale] = useState<any>(null);
 
-  const currentShiftSales = currentShift ? 
+  // Filtrar vendas do turno atual
+  const currentShiftSales = currentShift?.isActive ? 
     sales.filter(sale => sale.shiftId === currentShift.id) : 
     sales;
 
@@ -58,8 +60,9 @@ const SalesView = () => {
 
   const totalSales = currentShiftSales.reduce((sum, sale) => sum + sale.total, 0);
 
-  console.log('Vendas carregadas:', sales.length);
-  console.log('Vendas do turno atual:', currentShiftSales.length);
+  console.log('SalesView - Total sales in store:', sales.length);
+  console.log('SalesView - Current shift sales:', currentShiftSales.length);
+  console.log('SalesView - Current shift active:', currentShift?.isActive);
 
   return (
     <div className="p-6">
@@ -83,6 +86,11 @@ const SalesView = () => {
             <p className="text-sm text-muted-foreground mt-2">
               Total de vendas no sistema: {sales.length}
             </p>
+            {currentShift?.isActive && (
+              <p className="text-sm text-green-600 mt-1">
+                Turno ativo: {currentShift.userName}
+              </p>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -96,7 +104,7 @@ const SalesView = () => {
                       Venda #{sale.id.slice(-6)} - {getTableName(sale.tableNumber)}
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      {sale.createdAt.toLocaleString('pt-BR')} - {sale.userName}
+                      {new Date(sale.createdAt).toLocaleString('pt-BR')} - {sale.userName}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -153,7 +161,10 @@ const SalesView = () => {
                       <div className="space-y-1">
                         {sale.items.map((item, index) => (
                           <div key={index} className="flex justify-between text-sm">
-                            <span>{item.quantity}x {item.productName}</span>
+                            <span>
+                              {item.quantity}x {item.productName}
+                              {item.isCourtesy && <span className="text-orange-600 ml-1">(Cortesia)</span>}
+                            </span>
                             <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
                           </div>
                         ))}
