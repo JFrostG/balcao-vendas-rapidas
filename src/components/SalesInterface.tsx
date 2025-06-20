@@ -64,10 +64,17 @@ const SalesInterface = () => {
     }
 
     const finalPaymentMethod = selectedPaymentMethod || paymentMethod;
+    
+    // Chamar completeSale diretamente do salesStore
     completeSale(finalPaymentMethod, 0, 'value', 0); // Balcão
+    
     setPaymentMethod('dinheiro');
     toast.success('Venda realizada com sucesso!');
-    console.log('Venda finalizada com sucesso');
+    console.log('Venda do balcão finalizada:', {
+      paymentMethod: finalPaymentMethod,
+      total: getCartTotal(),
+      items: cart.length
+    });
   };
 
   // Suporte a teclado
