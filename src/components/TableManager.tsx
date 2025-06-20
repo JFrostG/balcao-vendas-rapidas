@@ -14,30 +14,20 @@ const TableManager = () => {
   const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [showBillDialog, setShowBillDialog] = useState(false);
 
-  const getTableColor = (status: TableStatus) => {
-    switch (status) {
-      case 'available':
-        return 'bg-green-500 hover:bg-green-600';
-      case 'occupied':
-        return 'bg-red-500 hover:bg-red-600';
-      case 'requesting-bill':
-        return 'bg-yellow-500 hover:bg-yellow-600';
-      default:
-        return 'bg-gray-400';
+  const getTableColor = (status: TableStatus, hasOrders: boolean) => {
+    if (status === 'requesting-bill') {
+      return 'bg-yellow-500 hover:bg-yellow-600';
     }
+    if (hasOrders || status === 'occupied') {
+      return 'bg-red-500 hover:bg-red-600';
+    }
+    return 'bg-green-500 hover:bg-green-600';
   };
 
-  const getStatusText = (status: TableStatus) => {
-    switch (status) {
-      case 'available':
-        return 'Livre';
-      case 'occupied':
-        return 'Ocupada';
-      case 'requesting-bill':
-        return 'Conta';
-      default:
-        return 'Indisponível';
-    }
+  const getStatusText = (status: TableStatus, hasOrders: boolean) => {
+    if (status === 'requesting-bill') return 'Conta Solicitada';
+    if (hasOrders || status === 'occupied') return 'Ocupada';
+    return 'Livre';
   };
 
   const handleTableClick = (tableNumber: number, status: TableStatus) => {
@@ -48,10 +38,10 @@ const TableManager = () => {
     
     setSelectedTable(tableNumber);
     
-    if (status === 'available' || status === 'occupied') {
-      setShowOrderDialog(true);
-    } else if (status === 'requesting-bill') {
+    if (status === 'requesting-bill') {
       setShowBillDialog(true);
+    } else {
+      setShowOrderDialog(true);
     }
   };
 
@@ -82,7 +72,7 @@ const TableManager = () => {
           <h2 className="text-lg font-semibold mb-4">Balcão - Vendas Rápidas</h2>
           <div className="flex justify-center">
             <Card 
-              className={`cursor-pointer transition-all duration-200 ${getTableColor(balcao.status)} w-48`}
+              className={`cursor-pointer transition-all duration-200 ${getTableColor(balcao.status, balcao.orders.length > 0)} w-48`}
               onClick={() => handleTableClick(balcao.id, balcao.status)}
             >
               <CardContent className="p-6 text-center">
@@ -90,10 +80,10 @@ const TableManager = () => {
                   Balcão
                 </div>
                 <div className="text-white text-sm mt-2">
-                  {getStatusText(balcao.status)}
+                  {getStatusText(balcao.status, balcao.orders.length > 0)}
                 </div>
-                {balcao.status === 'occupied' && (
-                  <div className="text-white text-xs mt-1">
+                {(balcao.orders.length > 0 || balcao.total > 0) && (
+                  <div className="text-white text-xs mt-1 font-semibold">
                     R$ {balcao.total.toFixed(2)}
                   </div>
                 )}
@@ -110,7 +100,7 @@ const TableManager = () => {
           {regularTables.map((table) => (
             <Card 
               key={table.id}
-              className={`cursor-pointer transition-all duration-200 ${getTableColor(table.status)}`}
+              className={`cursor-pointer transition-all duration-200 ${getTableColor(table.status, table.orders.length > 0)}`}
               onClick={() => handleTableClick(table.id, table.status)}
             >
               <CardContent className="p-6 text-center">
@@ -118,10 +108,10 @@ const TableManager = () => {
                   Mesa {table.id}
                 </div>
                 <div className="text-white text-sm mt-2">
-                  {getStatusText(table.status)}
+                  {getStatusText(table.status, table.orders.length > 0)}
                 </div>
-                {table.status === 'occupied' && (
-                  <div className="text-white text-xs mt-1">
+                {(table.orders.length > 0 || table.total > 0) && (
+                  <div className="text-white text-xs mt-1 font-semibold">
                     R$ {table.total.toFixed(2)}
                   </div>
                 )}
