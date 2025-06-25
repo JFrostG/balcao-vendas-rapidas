@@ -12,24 +12,27 @@ import SplitClosedSaleDialog from './SplitClosedSaleDialog';
 import QuickPaymentButtons from './QuickPaymentButtons';
 
 const SalesView = () => {
-  const { sales, deleteSale, updateSalePaymentMethod } = useSalesStore();
+  const salesStore = useSalesStore();
   const { currentShift } = useStore();
   const [editingSale, setEditingSale] = useState<string | null>(null);
   const [newPaymentMethod, setNewPaymentMethod] = useState<PaymentMethod>('dinheiro');
   const [splitSale, setSplitSale] = useState<any>(null);
 
-  // Filtrar vendas do turno atual
+  // Usar as vendas diretamente do salesStore
+  const allSales = salesStore.sales;
+  
+  // Filtrar vendas do turno atual se houver turno ativo
   const currentShiftSales = currentShift?.isActive ? 
-    sales.filter(sale => sale.shiftId === currentShift.id) : 
-    sales;
+    allSales.filter(sale => sale.shiftId === currentShift.id) : 
+    allSales;
 
   const handleDeleteSale = (saleId: string) => {
-    deleteSale(saleId);
+    salesStore.deleteSale(saleId);
     toast.success('Venda excluída com sucesso!');
   };
 
   const handleUpdatePaymentMethod = (saleId: string) => {
-    updateSalePaymentMethod(saleId, newPaymentMethod);
+    salesStore.updateSalePaymentMethod(saleId, newPaymentMethod);
     setEditingSale(null);
     toast.success('Forma de pagamento atualizada!');
   };
@@ -60,14 +63,15 @@ const SalesView = () => {
 
   const totalSales = currentShiftSales.reduce((sum, sale) => sum + sale.total, 0);
 
-  console.log('SalesView - Total sales in store:', sales.length);
+  console.log('SalesView - Total sales in store:', allSales.length);
   console.log('SalesView - Current shift sales:', currentShiftSales.length);
   console.log('SalesView - Current shift active:', currentShift?.isActive);
+  console.log('SalesView - All sales:', allSales);
 
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Vendas do Turno</h1>
+        <h1 className="text-2xl font-bold">Vendas {currentShift?.isActive ? 'do Turno' : 'Históricas'}</h1>
         <div className="flex items-center gap-4">
           <Button variant="outline" size="sm">
             <Printer className="w-4 h-4 mr-2" />
@@ -82,9 +86,11 @@ const SalesView = () => {
       {currentShiftSales.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
-            <p className="text-muted-foreground">Nenhuma venda registrada no turno atual</p>
+            <p className="text-muted-foreground">
+              {currentShift?.isActive ? 'Nenhuma venda registrada no turno atual' : 'Nenhuma venda encontrada'}
+            </p>
             <p className="text-sm text-muted-foreground mt-2">
-              Total de vendas no sistema: {sales.length}
+              Total de vendas no sistema: {allSales.length}
             </p>
             {currentShift?.isActive && (
               <p className="text-sm text-green-600 mt-1">

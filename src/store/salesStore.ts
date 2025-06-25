@@ -13,6 +13,7 @@ interface SalesState {
   completeSale: (paymentMethod: PaymentMethod, discount?: number, discountType?: 'value' | 'percentage', tableNumber?: number) => void;
   deleteSale: (saleId: string) => void;
   updateSalePaymentMethod: (saleId: string, paymentMethod: PaymentMethod) => void;
+  addSale: (sale: Sale) => void;
   getCartTotal: () => number;
 }
 
@@ -74,7 +75,7 @@ export const useSalesStore = create<SalesState>()(
         const total = Math.max(0, subtotal - discountAmount);
         
         const newSale: Sale = {
-          id: Date.now().toString(),
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
           items: cart.map(item => ({
             productId: item.productId,
             productName: item.productName,
@@ -100,6 +101,15 @@ export const useSalesStore = create<SalesState>()(
         
         console.log('Venda registrada:', newSale);
         console.log('Total de vendas:', get().sales.length);
+        
+        return newSale;
+      },
+      addSale: (sale) => {
+        set((state) => ({
+          sales: [...state.sales, sale],
+        }));
+        console.log('Venda adicionada:', sale);
+        console.log('Total de vendas após adicionar:', get().sales.length);
       },
       deleteSale: (saleId) => {
         set((state) => ({
