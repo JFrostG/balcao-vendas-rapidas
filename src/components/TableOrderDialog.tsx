@@ -38,7 +38,8 @@ const TableOrderDialog = ({ tableNumber, onClose, onRequestBill }: TableOrderDia
 
   const handleAddProduct = (product: any) => {
     addToTable(tableNumber, product);
-    toast.success(`${product.name} adicionado à Mesa ${tableNumber}`);
+    const tableName = tableNumber === 0 ? 'Balcão' : `Mesa ${tableNumber}`;
+    toast.success(`${product.name} adicionado ao ${tableName}`);
   };
 
   const handleRequestBill = () => {
@@ -49,11 +50,15 @@ const TableOrderDialog = ({ tableNumber, onClose, onRequestBill }: TableOrderDia
     onRequestBill(tableNumber);
   };
 
+  const getTableName = () => {
+    return tableNumber === 0 ? 'Balcão' : `Mesa ${tableNumber}`;
+  };
+
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Mesa {tableNumber} - Pedidos</DialogTitle>
+          <DialogTitle>{getTableName()} - Pedidos</DialogTitle>
         </DialogHeader>
         
         <div className="flex h-[70vh]">
@@ -100,8 +105,8 @@ const TableOrderDialog = ({ tableNumber, onClose, onRequestBill }: TableOrderDia
                   Nenhum pedido
                 </p>
               ) : (
-                table.orders.map(item => (
-                  <Card key={item.productId}>
+                table.orders.map((item, index) => (
+                  <Card key={`${item.productId}-${index}`}>
                     <CardContent className="p-3">
                       <div className="flex justify-between items-start mb-2">
                         <h4 className="font-medium text-sm">{item.productName}</h4>

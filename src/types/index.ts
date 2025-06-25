@@ -25,7 +25,7 @@ export interface Product {
   category: ProductCategory;
   available: boolean;
   description?: string;
-  code: string; // Tornando obrigatório
+  code: string;
 }
 
 export type ProductCategory = 'hamburguer' | 'bebida' | 'acompanhamento' | 'sobremesa' | 'outro';

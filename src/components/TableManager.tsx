@@ -47,20 +47,35 @@ const TableManager = () => {
 
   const handleRequestBill = (tableNumber: number) => {
     updateTableStatus(tableNumber, 'requesting-bill');
-    toast.success(`Conta solicitada para ${tableNumber === 0 ? 'Balcão' : `Mesa ${tableNumber}`}`);
+    const tableName = tableNumber === 0 ? 'Balcão' : `Mesa ${tableNumber}`;
+    toast.success(`Conta solicitada para ${tableName}`);
     setShowOrderDialog(false);
   };
 
   const handlePayment = (tableNumber: number) => {
     clearTable(tableNumber);
-    toast.success(`Pagamento realizado - ${tableNumber === 0 ? 'Balcão' : `Mesa ${tableNumber}`} liberada`);
+    const tableName = tableNumber === 0 ? 'Balcão' : `Mesa ${tableNumber}`;
+    toast.success(`Pagamento realizado - ${tableName} liberada`);
     setShowBillDialog(false);
     setSelectedTable(null);
   };
 
-  // Separar balcão das outras mesas
-  const balcao = tables.find(t => t.id === 0);
-  const regularTables = tables.filter(t => t.id !== 0);
+  // Criar arrays de mesas (balcão + mesas 1-20)
+  const allTableNumbers = [0, ...Array.from({length: 20}, (_, i) => i + 1)];
+  
+  // Mapear mesas existentes e criar objetos para todas as mesas
+  const allTables = allTableNumbers.map(num => {
+    const existingTable = tables.find(t => t.id === num);
+    return existingTable || {
+      id: num,
+      status: 'available' as TableStatus,
+      orders: [],
+      total: 0
+    };
+  });
+
+  const balcao = allTables.find(t => t.id === 0);
+  const regularTables = allTables.filter(t => t.id !== 0);
 
   return (
     <div className="p-6">

@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useAuthStore } from './authStore';
@@ -43,8 +42,8 @@ interface AppState {
   updateTableQuantity: (tableNumber: number, productId: string, quantity: number) => void;
   updateTableStatus: (tableNumber: number, status: TableStatus) => void;
   clearTable: (tableNumber: number) => void;
-  completeTableSale: (tableNumber: number, paymentMethod: PaymentMethod, discount: number, discountType: 'value' | 'percentage') => void;
-  completeTableSaleWithSplit: (tableNumber: number, payments: Array<{method: PaymentMethod, amount: number}>, discount: number, discountType: 'value' | 'percentage') => void;
+  completeTableSale: (tableNumber: number, paymentMethod: PaymentMethod) => void;
+  completeTableSaleWithSplit: (tableNumber: number, payments: Array<{method: PaymentMethod, amount: number}>) => void;
   
   // Users
   users: User[];
@@ -164,15 +163,15 @@ export const useStore = create<AppState>()(
       addToTable: (tableNumber, product, quantity) => {
         const { currentShift } = get();
         if (!currentShift?.isActive) return;
-        useTableStore.getState().addToTable(tableNumber, product, quantity);
+        useTableStore.getState().addProductToTable(tableNumber, product, quantity);
         set({ tables: useTableStore.getState().tables });
       },
       removeFromTable: (tableNumber, productId) => {
-        useTableStore.getState().removeFromTable(tableNumber, productId);
+        useTableStore.getState().removeProductFromTable(tableNumber, productId);
         set({ tables: useTableStore.getState().tables });
       },
       updateTableQuantity: (tableNumber, productId, quantity) => {
-        useTableStore.getState().updateTableQuantity(tableNumber, productId, quantity);
+        useTableStore.getState().updateProductQuantity(tableNumber, productId, quantity);
         set({ tables: useTableStore.getState().tables });
       },
       updateTableStatus: (tableNumber, status) => {
@@ -183,8 +182,8 @@ export const useStore = create<AppState>()(
         useTableStore.getState().clearTable(tableNumber);
         set({ tables: useTableStore.getState().tables });
       },
-      completeTableSale: (tableNumber, paymentMethod, discount, discountType) => {
-        useTableStore.getState().completeTableSale(tableNumber, paymentMethod, discount, discountType);
+      completeTableSale: (tableNumber, paymentMethod) => {
+        useTableStore.getState().completeTableSale(tableNumber, paymentMethod);
         const tableState = useTableStore.getState();
         const salesState = useSalesStore.getState();
         set({ 
@@ -192,8 +191,8 @@ export const useStore = create<AppState>()(
           sales: salesState.sales 
         });
       },
-      completeTableSaleWithSplit: (tableNumber, payments, discount, discountType) => {
-        useTableStore.getState().completeTableSaleWithSplit(tableNumber, payments, discount, discountType);
+      completeTableSaleWithSplit: (tableNumber, payments) => {
+        useTableStore.getState().completeTableSaleWithSplit(tableNumber, payments);
         const tableState = useTableStore.getState();
         const salesState = useSalesStore.getState();
         set({ 
@@ -243,7 +242,6 @@ export const useStore = create<AppState>()(
     {
       name: 'burger-pdv-storage',
       partialize: (state) => ({
-        // Sincronizar dados importantes
         currentUser: state.currentUser,
         currentShift: state.currentShift,
       }),
